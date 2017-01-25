@@ -1,0 +1,25 @@
+﻿{
+  "$schema": "http://datafactories.schema.management.azure.com/schemas/2015-09-01/Microsoft.DataFactory.Table.json",
+  "name": "OutputTable",
+  "properties": {
+    "type": "AzureBlob",
+    "linkedServiceName": "AzureStorageLinkedService",
+    "typeProperties": {
+      "folderPath": "<blob container>/httpDownloadDataIn/{Slice}/",
+      "partitionedBy": [
+        {
+          "name": "Slice",
+          "value": {
+            "type": "DateTime",
+            "date": "SliceStart",
+            "format": "yyyyMMddHHmm"
+          }
+        }
+      ]
+    },
+    "availability": {
+      "frequency": "Hour",
+      "interval": 1
+    }
+  }
+}

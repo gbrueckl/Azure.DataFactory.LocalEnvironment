@@ -1,0 +1,9 @@
+﻿{
+    "$schema": "http://datafactories.schema.management.azure.com/vsschemas/V1/Microsoft.DataFactory.Config.json",
+  "DataDownloaderSamplePipeline": [
+    {
+      "name": "$.properties.activities[*].policy.timeout",
+      "value": "00:30:00"
+    }
+  ]
+}
