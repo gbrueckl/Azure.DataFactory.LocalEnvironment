@@ -97,10 +97,6 @@
       <Project>{ba48bb97-9c6f-4d75-abe7-42c9867587de}</Project>
       <Name>ADFLocalEnvironment</Name>
     </ProjectReference>
-    <ProjectReference Include="..\MyCustomActivity\MyCustomActivity.csproj">
-      <Project>{0573fe24-6802-4b6a-a8b5-be3487d668d3}</Project>
-      <Name>MyCustomActivity</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\packages\Microsoft.Bcl.Build.1.0.14\tools\Microsoft.Bcl.Build.targets" Condition="Exists('..\packages\Microsoft.Bcl.Build.1.0.14\tools\Microsoft.Bcl.Build.targets')" />
