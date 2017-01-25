@@ -14,6 +14,9 @@ using System.Text.RegularExpressions;
 using Microsoft.Build.Evaluation;
 using System.Reflection;
 using Microsoft.Azure.Management.DataFactories.Common.Models;
+using ICSharpCode.SharpZipLib.Zip;
+using ICSharpCode.SharpZipLib.Core;
+using Microsoft.Azure.Management.DataFactories.Runtime;
 
 namespace Azure.DataFactory
 {
@@ -31,7 +34,7 @@ namespace Azure.DataFactory
         Dictionary<string, Dataset> _adfDataSets;
         Dictionary<string, Pipeline> _adfPipelines;
         Dictionary<string, JObject> _adfConfigurations;
-        List<FileInfo> _adfDependencies;
+        Dictionary<string, FileInfo> _adfDependencies;
 
         Dictionary<string, JObject> _armFiles;
         #endregion
@@ -113,7 +116,7 @@ namespace Azure.DataFactory
             _adfDataSets = new Dictionary<string, Dataset>();
             _adfPipelines = new Dictionary<string, Pipeline>();
             _adfConfigurations = new Dictionary<string, JObject>();
-            _adfDependencies = new List<FileInfo>();
+            _adfDependencies = new Dictionary<string, FileInfo>();
             _armFiles = new Dictionary<string, JObject>();
 
             _project = new Project(projectFilePath);
@@ -181,9 +184,9 @@ namespace Azure.DataFactory
                             }
                         }
                     }
-                    if(projItem.ItemType == "Content") // Dependencies
+                    if(i == 0 && projItem.ItemType == "Content") // Dependencies
                     {
-                        // TODO
+                        _adfDependencies.Add(projItem.EvaluatedInclude, new FileInfo(_project.DirectoryPath + "\\" + projItem.EvaluatedInclude));
                     }
                 }
             }
@@ -236,8 +239,51 @@ namespace Azure.DataFactory
             ret.Add("resources", resources);
             return ret;
         }
+
+        public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd, IActivityLogger activityLogger)
+        {
+            Dictionary<string, string> ret = null;
+            string dependencyPath = Path.Combine(Environment.CurrentDirectory, "CustomActivityDependency");
+
+            Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles[Pipelines[pipelineName].Name + ".json"], sliceStart, sliceEnd), "Pipeline");
+            Activity activityMeta = pipeline.GetActivityByName(activityName);
+
+            // create a list of all Input- and Output-Datasets defined for the Activity
+            List<Dataset> activityInputDatasets = _adfDataSets.Values.Where(adfDS => activityMeta.Inputs.Any(ds => adfDS.Name == ds.Name)).ToList();
+            List<Dataset> activityDatasets = activityInputDatasets.Concat(_adfDataSets.Values.Where(adfDS => activityMeta.Outputs.Any(ds => adfDS.Name == ds.Name)).ToList()).ToList();
+
+            List<LinkedService> activityLinkedServices = new List<LinkedService>();
+
+            // apply the Slice-Settings to all relevant objects (Datasets and Activity)
+            for (int i = 0; i < activityDatasets.Count; i++)
+            {
+                // MapSlices for the used Datasets
+                activityDatasets[i] = (Dataset)GetADFObjectFromJson(MapSlices(_armFiles[activityDatasets[i].Name + ".json"], sliceStart, sliceEnd), "Dataset");
+
+                // currently, as of 2017-01-25, the same LinkedService might get added multiple times if it is referenced by multiple datasets
+                // this is the same behavior as if the activity was executed with ADF Service!!!
+                activityLinkedServices.Add(_adfLinkedServices.Values.Single(x => x.Name == activityDatasets[i].Properties.LinkedServiceName));
+            }
+          
+            DotNetActivity dotNetActivityMeta = (DotNetActivity)activityMeta.TypeProperties;
+
+            FileInfo zipFile = _adfDependencies.Single(x => dotNetActivityMeta.PackageFile.EndsWith(x.Value.Name)).Value;
+            UnzipFile(zipFile, dependencyPath);
+
+            Assembly assembly = Assembly.LoadFrom(dependencyPath + "\\" + dotNetActivityMeta.AssemblyName);
+            Type type = assembly.GetType(dotNetActivityMeta.EntryPoint);
+            IDotNetActivity dotNetActivityExecute = Activator.CreateInstance(type) as IDotNetActivity;
+
+            ret = (Dictionary<string, string>)dotNetActivityExecute.Execute(activityLinkedServices, activityDatasets, activityMeta, activityLogger);
+
+            return ret;
+        }
+        public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd)
+        {
+            return ExecuteActivity(pipelineName, activityName, sliceStart, sliceEnd, null);
+        }
         #endregion
-        #region Private Functions
+            #region Private Functions
         private JObject CurrentConfiguration
         {
             get
@@ -343,7 +389,48 @@ namespace Azure.DataFactory
                 }
             }
         }
-        private void MapSlices(ref JObject jsonObject, DateTime SliceStart, DateTime SliceEnd)
+        private DirectoryInfo UnzipFile(FileInfo zipFileInfo, string localFolder)
+        {
+            Directory.CreateDirectory(localFolder);
+            string outputFileName = string.Empty;
+
+            ZipFile zipFile = new ZipFile(zipFileInfo.FullName);
+
+            foreach (ZipEntry zipEntry in zipFile)
+            {
+                if (!zipEntry.IsFile)
+                {
+                    continue;           // Ignore directories
+                }
+                String entryFileName = zipEntry.Name;
+                // to remove the folder from the entry:- entryFileName = Path.GetFileName(entryFileName);
+                // Optionally match entrynames against a selection list here to skip as desired.
+                // The unpacked length is available in the zipEntry.Size property.
+
+                byte[] buffer = new byte[4096];     // 4K is optimum
+                Stream zipStream = zipFile.GetInputStream(zipEntry);
+
+                // Manipulate the output filename here as desired.
+                outputFileName = Path.Combine(localFolder, entryFileName);
+                string directoryName = Path.GetDirectoryName(outputFileName);
+                if (directoryName.Length > 0)
+                    Directory.CreateDirectory(directoryName);
+
+                // Unzip file in buffered chunks. This is just as fast as unpacking to a buffer the full size
+                // of the file, but does not waste memory.
+                // The "using" will close the stream even if an exception occurs.
+                using (FileStream streamWriter = File.Create(outputFileName))
+                {
+                    StreamUtils.Copy(zipStream, streamWriter, buffer);
+                }
+            }
+
+            zipFile.Close();
+            
+
+            return new DirectoryInfo(localFolder);
+        }
+        private JObject MapSlices(JObject jsonObject, DateTime SliceStart, DateTime SliceEnd)
         {
             JProperty jProp;
             string objectName = jsonObject["name"].ToString();
@@ -381,17 +468,17 @@ namespace Azure.DataFactory
 
                             for (int i = 0; i < parameters.Count; i++)
                             {
-                                arguments.Add(new object());
-                            }
-
-                            if (parameters.Contains("SliceEnd"))
-                            {
-                                arguments[parameters.IndexOf("SliceEnd")] = SliceEnd;
-                            }
-
-                            if (parameters.Contains("SliceStart"))
-                            {
-                                arguments[parameters.IndexOf("SliceStart")] = SliceStart;
+                                switch(parameters[i])
+                                {
+                                    case "SliceStart":
+                                        arguments.Add(SliceStart);
+                                        break;
+                                    case "SliceEnd":
+                                        arguments.Add(SliceEnd);
+                                        break;
+                                    default:
+                                        throw new KeyNotFoundException("Currently only the values 'SliceStart' and 'SliceEnd' are supported for $$Text.Format");
+                                }
                             }
 
                             jProp.Value = new JValue(string.Format(textTemplate, arguments.ToArray()));
@@ -430,7 +517,8 @@ namespace Azure.DataFactory
             {
                 newObjectJson = newObjectJson.Replace(kvp.Key, kvp.Value);
             }
-            jsonObject = JObject.Parse(newObjectJson);
+
+            return JObject.Parse(newObjectJson);
         }
         #endregion
     }

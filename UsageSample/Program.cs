@@ -9,9 +9,6 @@ using Microsoft.Azure.Management.DataFactories.Models;
 using Core = Microsoft.Azure.Management.DataFactories.Core;
 using CoreModels = Microsoft.Azure.Management.DataFactories.Core.Models;
 
-// Namespace of ADF Custom Activity
-using DataDownloaderActivityNS;
-
 namespace UsageSample
 {
     class Program
@@ -22,9 +19,10 @@ namespace UsageSample
 
             ADFLocalEnvironment env = new ADFLocalEnvironment(path, "MyConfig");
 
-            env.ExportARMTemplate("..\\..\\..\\Sample_ARMExport\\AzureDataFactory.json");
+            //env.ExportARMTemplate("..\\..\\..\\Sample_ARMExport\\AzureDataFactory.json");
 
-            
+            env.ExecuteActivity("DataDownloaderSamplePipeline", "DownloadData", new DateTime(2017, 1, 1), new DateTime(2017, 1, 3));
+
         }
     }
 }
