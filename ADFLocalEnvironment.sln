@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ADFLocalEnvironment", "ADFL
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UsageSample", "UsageSample\UsageSample.csproj", "{FD5CC642-EA59-4D02-B93D-6A4167D521D5}"
 EndProject
-Project("{151D2E53-A2C4-4D7D-83FE-D05416EBD58E}") = "Sample_ARMExport", "Sample_ARMExport\Sample_ARMExport.deployproj", "{518E36B5-CE47-40C2-B589-DE29434C07AE}"
+Project("{151D2E53-A2C4-4D7D-83FE-D05416EBD58E}") = "MyARMTemplate", "MyARMTemplate\MyARMTemplate.deployproj", "{518E36B5-CE47-40C2-B589-DE29434C07AE}"
 EndProject
 Project("{3466B219-07DB-46AE-8697-CFD2A1650EC8}") = "MyADFProject", "MyADFProject\MyADFProject.dfproj", "{B409758D-777A-4C71-AD97-5C5EA11DE516}"
 EndProject

@@ -19,8 +19,10 @@ namespace UsageSample
 
             ADFLocalEnvironment env = new ADFLocalEnvironment(path, "MyConfig");
 
-            //env.ExportARMTemplate("..\\..\\..\\Sample_ARMExport\\AzureDataFactory.json");
+            // To Export to an ARM-Template:
+            env.ExportARMTemplate("..\\..\\..\\MyARMTemplate\\AzureDataFactory.json");
 
+            // To Execute and Debug a Custom Activity:
             env.ExecuteActivity("DataDownloaderSamplePipeline", "DownloadData", new DateTime(2017, 1, 1), new DateTime(2017, 1, 3));
 
         }
