@@ -1,9 +1,33 @@
 ﻿{
-    "$schema": "http://datafactories.schema.management.azure.com/vsschemas/V1/Microsoft.DataFactory.Config.json",
+  "$schema": "http://datafactories.schema.management.azure.com/vsschemas/V1/Microsoft.DataFactory.Config.json",
   "DataDownloaderSamplePipeline": [
     {
       "name": "$.properties.activities[*].policy.timeout",
       "value": "00:30:00"
+    }
+  ],
+  "AzureBatchLinkedService": [
+    {
+      "name": "$.properties.typeProperties.accountName",
+      "value": "Name of the Batch Account"
+    },
+    {
+      "name": "$.properties.typeProperties.accessKey",
+      "value": "AccessKey for the Batch Account"
+    },
+    {
+      "name": "$.properties.typeProperties.poolName",
+      "value": "Name of the Pool in the Batch Account"
+    },
+    {
+      "name": "$.properties.typeProperties.batchUri",
+      "value": "URL without accountName. Ex: https://<region>.batch.azure.com"
+    }
+  ],
+  "AzureStorageLinkedService": [
+    {
+      "name": "$.properties.typeProperties.connectionString",
+      "value": "ConnectionString to the BlobStore"
     }
   ]
 }

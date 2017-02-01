@@ -5,7 +5,7 @@
     "type": "AzureBlob",
     "linkedServiceName": "AzureStorageLinkedService",
     "typeProperties": {
-      "folderPath": "<blob container>/httpDownloadDataIn/{Slice}/",
+      "folderPath": "adfcontainer/httpDownloadDataIn/{Slice}/",
       "partitionedBy": [
         {
           "name": "Slice",

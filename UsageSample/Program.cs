@@ -17,10 +17,11 @@ namespace UsageSample
         {
             string path = @"..\\..\\..\\\MyADFProject\MyADFProject.dfproj";
 
-            ADFLocalEnvironment env = new ADFLocalEnvironment(path, "MyConfig");
+            ADFLocalEnvironment env = new ADFLocalEnvironment(path, "MyPrivateConfig");
 
             // To Export to an ARM-Template:
-            env.ExportARMTemplate("..\\..\\..\\MyARMTemplate\\AzureDataFactory.json");
+            env.ExportARMTemplate("..\\..\\..\\MyARMTemplate\\MyARMTemplate.deployproj", "North Europe");
+            string postDeploymentScript = env.GetARMPostDeploymentScript();
 
             // To Execute and Debug a Custom Activity:
             env.ExecuteActivity("DataDownloaderSamplePipeline", "DownloadData", new DateTime(2017, 1, 1), new DateTime(2017, 1, 3));

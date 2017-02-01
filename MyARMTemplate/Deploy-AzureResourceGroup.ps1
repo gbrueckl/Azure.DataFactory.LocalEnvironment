@@ -118,3 +118,15 @@ else {
         Write-Output '', 'Template deployment returned the following errors:', @(@($ErrorMessages) | ForEach-Object { $_.Exception.Message.TrimEnd("`r`n") })
     }
 }
+
+
+# Execute Post-Deployment Scripts
+Get-ChildItem -Path $PSScriptRoot -File -Filter "Post-*.ps1" | ForEach-Object { & $_.FullName `
+                                                            -ResourceGroupLocation $ResourceGroupLocation `
+                                                            -ResourceGroupName $ResourceGroupName `
+                                                            -UploadArtifacts $UploadArtifacts `
+                                                            -StorageAccountName $StorageAccountName `
+                                                            -StorageContainerName $StorageContainerName `
+                                                            -ArtifactStagingDirectory $ArtifactStagingDirectory `
+                                                            -DSCSourceFolder $DSCSourceFolder 
+                                                        }

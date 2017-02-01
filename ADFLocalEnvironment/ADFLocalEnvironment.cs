@@ -27,7 +27,7 @@ namespace Azure.DataFactory
         const string ARM_PROJECT_PARAMETER_NAME = "DataFactoryName";
         #endregion
         #region Private Variables
-        Project _project;
+        Project _adfProject;
         string _projectName;
         string _configName;
         Dictionary<string, LinkedService> _adfLinkedServices;
@@ -119,8 +119,8 @@ namespace Azure.DataFactory
             _adfDependencies = new Dictionary<string, FileInfo>();
             _armFiles = new Dictionary<string, JObject>();
 
-            _project = new Project(projectFilePath);
-            _projectName = new FileInfo(_project.FullPath).Name.Replace(".dfproj", "");
+            _adfProject = new Project(projectFilePath);
+            _projectName = new FileInfo(_adfProject.FullPath).Name.Replace(".dfproj", "");
 
             string schema;
             string adfType;
@@ -130,14 +130,16 @@ namespace Azure.DataFactory
 
             for(int i = 0; i < 2; i++) // iterate twice, first to read config-files and second to read other files and apply the config directly
             {
-                foreach (ProjectItem projItem in _project.Items)
+                foreach (ProjectItem projItem in _adfProject.Items)
                 {
                     if (projItem.ItemType == "Script")
                     {
-                        using (StreamReader file = File.OpenText(_project.DirectoryPath + "\\" + projItem.EvaluatedInclude))
+                        using (StreamReader file = File.OpenText(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude))
                         {
                             using (JsonTextReader reader = new JsonTextReader(file))
                             {
+                                reader.DateParseHandling = DateParseHandling.None;
+                                reader.DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind;
                                 JObject jsonObj = (JObject)JToken.ReadFrom(reader);
 
                                 if (jsonObj["$schema"] != null)
@@ -186,7 +188,7 @@ namespace Azure.DataFactory
                     }
                     if(i == 0 && projItem.ItemType == "Content") // Dependencies
                     {
-                        _adfDependencies.Add(projItem.EvaluatedInclude, new FileInfo(_project.DirectoryPath + "\\" + projItem.EvaluatedInclude));
+                        _adfDependencies.Add(projItem.EvaluatedInclude, new FileInfo(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude));
                     }
                 }
             }
@@ -196,18 +198,25 @@ namespace Azure.DataFactory
             LoadProjectFile(projectFilePath, null);
         }
 
-        public void ExportARMTemplate(string outputFilePath)
+        public void ExportARMTemplate(string armProjectFilePath, string resourceLocation)
         {
-            JObject armTemplate = GetARMTemplate();
+            Project armProject = new Project(armProjectFilePath);
+            string outputFilePath = armProject.DirectoryPath + "\\AzureDataFactory.json";
+            JObject armTemplate = GetARMTemplate(resourceLocation);
 
             // serialize JSON directly to a file
             using (StreamWriter file = File.CreateText(outputFilePath))
             {
-                JsonSerializer serializer = new JsonSerializer();
-                serializer.Serialize(file, armTemplate);
+                file.Write(JsonConvert.SerializeObject(armTemplate, new JsonSerializerSettings { DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind }));
             }
+
+            CopyADFDependenciesToARM(armProject);
         }
-        public JObject GetARMTemplate()
+        public void ExportAMRTemplate(string outputFilePath)
+        {
+            ExportARMTemplate(outputFilePath, "[resourceGroup().location]");
+        }
+        public JObject GetARMTemplate(string resourceLocation)
         {
             JObject ret = new JObject();
             JObject parameters = new JObject();
@@ -228,7 +237,7 @@ namespace Azure.DataFactory
             dataFactory.Add("name", "[parameters('" + ARM_PROJECT_PARAMETER_NAME + "')]");
             dataFactory.Add("apiVersion", ARM_API_VERSION);
             dataFactory.Add("type", "Microsoft.DataFactory/datafactories");
-            dataFactory.Add("location", "[resourceGroup().location]");
+            dataFactory.Add("location", resourceLocation);
 
             JArray resources = new JArray(_armFiles.Values);
             dataFactory.Add("resources", resources);
@@ -239,11 +248,144 @@ namespace Azure.DataFactory
             ret.Add("resources", resources);
             return ret;
         }
+        public JObject GetARMTemplate()
+        {
+            return GetARMTemplate("[resourceGroup().location]");
+        }
+
+        private void CopyADFDependenciesToARM(Project armProject)
+        {
+            Dictionary<LinkedService, Dictionary<string, FileInfo>> dependenciesToUploade = new Dictionary<LinkedService, Dictionary<string, FileInfo>>();
+            DotNetActivity dotNetActivity;
+            LinkedService linkedService;
+            AzureStorageLinkedService azureBlob;
+            Dictionary<string, FileInfo> tempList;
+            string accountName;
+            string containerName;
+            string filePath;
+            FileInfo targetFile;
+
+            foreach (Pipeline pipeline in Pipelines.Values)
+            {
+                foreach (Activity activity in pipeline.Properties.Activities)
+                {
+                    if (activity.TypeProperties is DotNetActivity)
+                    {
+                        dotNetActivity = (DotNetActivity)activity.TypeProperties;
+                        linkedService = LinkedServices[dotNetActivity.PackageLinkedService];
+
+                        if (!dependenciesToUploade.ContainsKey(linkedService))
+                        {
+                            dependenciesToUploade.Add(linkedService, new Dictionary<string, FileInfo>());
+                        }
+
+                        tempList = dependenciesToUploade[linkedService];
+
+                        if (!tempList.ContainsKey(dotNetActivity.PackageFile))
+                        {
+                            dependenciesToUploade[linkedService].Add(dotNetActivity.PackageFile, _adfDependencies.Single(x => dotNetActivity.PackageFile.EndsWith(x.Key.Replace("Dependencies\\", ""))).Value);
+                        }
+                    }
+                }
+            }
+
+            foreach (KeyValuePair<LinkedService, Dictionary<string, FileInfo>> kvp in dependenciesToUploade)
+            {
+                if (!(kvp.Key.Properties.TypeProperties is AzureStorageLinkedService))
+                {
+                    throw new Exception("Only AzureStorageLinkedServices are supported at the moment!");
+                }
+
+                azureBlob = (AzureStorageLinkedService)kvp.Key.Properties.TypeProperties;
+                Match match = Regex.Match(azureBlob.ConnectionString, ".*;AccountName=(.*)[;\b]");
+
+                accountName = match.Groups[1].Value;
+
+                foreach (KeyValuePair<string, FileInfo> dependency in kvp.Value)
+                {
+                    containerName = dependency.Key.Substring(0, dependency.Key.IndexOf('/'));
+                    filePath = dependency.Key.Replace(containerName + "/", "").Replace("/", "\\").TrimEnd('\\');
+                    targetFile = new FileInfo(string.Format("{0}\\{1}\\{2}\\{3}\\{4}", armProject.DirectoryPath, "ADF_Dependencies", accountName, containerName, filePath));
+
+                    targetFile.Directory.Create();
+
+                    dependency.Value.CopyTo(targetFile.FullName, true);
+                }
+            }
+        }
+        public string GetARMPostDeploymentScript()
+        {
+            StringBuilder sb = new StringBuilder();
+                        
+            Dictionary<LinkedService, Dictionary<string, FileInfo>> dependenciesToUploade = new Dictionary<LinkedService, Dictionary<string, FileInfo>>();
+            DotNetActivity dotNetActivity;
+            LinkedService linkedService;
+            AzureStorageLinkedService azureBlob;
+            Dictionary<string, FileInfo> tempList;
+            string accountName;
+            string containerName;
+
+            foreach (Pipeline pipeline in Pipelines.Values)
+            {
+                foreach(Activity activity in pipeline.Properties.Activities)
+                {
+                    if(activity.TypeProperties is DotNetActivity)
+                    {
+                        dotNetActivity = (DotNetActivity)activity.TypeProperties;
+                        linkedService = LinkedServices[dotNetActivity.PackageLinkedService];
+                        
+                        if(!dependenciesToUploade.ContainsKey(linkedService))
+                        {
+                            dependenciesToUploade.Add(linkedService, new Dictionary<string, FileInfo>());
+                        }
+
+                        tempList = dependenciesToUploade[linkedService];
+
+                        if(!tempList.ContainsKey(dotNetActivity.PackageFile))
+                        {
+                            dependenciesToUploade[linkedService].Add(dotNetActivity.PackageFile, _adfDependencies.Single(x => dotNetActivity.PackageFile.EndsWith(x.Key.Replace("Dependencies\\", ""))).Value);
+                        }
+                    }
+                }
+            }
+
+            foreach(KeyValuePair<LinkedService, Dictionary<string, FileInfo>> kvp in dependenciesToUploade)
+            {
+                if (!(kvp.Key.Properties.TypeProperties is AzureStorageLinkedService))
+                {
+                    throw new Exception("Only AzureStorageLinkedServices are supported at the moment!");
+                }
+
+                azureBlob = (AzureStorageLinkedService)kvp.Key.Properties.TypeProperties;
+                Match match = Regex.Match(azureBlob.ConnectionString,".*;AccountName=(.*)[;\b]");
+
+                accountName = match.Groups[1].Value;
+
+                sb.AppendLine("# Set our $StorageAccount-variable to the name of the StorageAccount of the LinkedService");
+                sb.AppendLine(string.Format("$StorageAccount = (Get-AzureRmStorageAccount | Where-Object{{$_.StorageAccountName -eq \"{0}\"}})", accountName));
+
+                sb.AppendLine("# Copy files from the local storage staging location to the storage account container");
+
+                foreach(KeyValuePair<string, FileInfo> dependency in kvp.Value)
+                {
+                    containerName = dependency.Key.Substring(0, dependency.Key.IndexOf('/'));
+  
+                    sb.AppendLine("# Create Container if not exists, use previously set $StorageAccount");
+                    sb.AppendLine(string.Format("New-AzureStorageContainer -Name \"{0}\" -Context $StorageAccount.Context -ErrorAction SilentlyContinue *>&1", containerName));
+
+                    sb.AppendLine(string.Format("Set-AzureStorageBlobContent -File \"{0}\" -Blob \"{1}\" -Container \"{2}\" -Context $StorageAccount.Context -Force", dependency.Value.FullName, dependency.Key.Replace(containerName + "/", ""), containerName));
+
+                    sb.AppendLine("");
+                }
+            }
+
+            return sb.ToString();
+        }
 
         public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd, IActivityLogger activityLogger)
         {
             Dictionary<string, string> ret = null;
-            string dependencyPath = Path.Combine(Environment.CurrentDirectory, "CustomActivityDependency");
+            string dependencyPath = Path.Combine(Environment.CurrentDirectory, "CustomActivityDependencies");
 
             Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles[Pipelines[pipelineName].Name + ".json"], sliceStart, sliceEnd), "Pipeline");
             Activity activityMeta = pipeline.GetActivityByName(activityName);
@@ -276,14 +418,19 @@ namespace Azure.DataFactory
 
             ret = (Dictionary<string, string>)dotNetActivityExecute.Execute(activityLinkedServices, activityDatasets, activityMeta, activityLogger);
 
+            if(Directory.Exists(dependencyPath))
+            {
+                Directory.Delete(dependencyPath, true);
+            }
+
             return ret;
         }
         public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd)
         {
-            return ExecuteActivity(pipelineName, activityName, sliceStart, sliceEnd, null);
+            return ExecuteActivity(pipelineName, activityName, sliceStart, sliceEnd, new ADFConsoleLogger());
         }
         #endregion
-            #region Private Functions
+        #region Private Functions
         private JObject CurrentConfiguration
         {
             get
@@ -326,7 +473,7 @@ namespace Azure.DataFactory
 
             switch (resourceType.ToLower())
             {
-                case "pipelines": // for pipelines also add dependencies to all Input and Output-Datasets
+                case "datapipelines": // for pipelines also add dependencies to all Input and Output-Datasets
                     foreach (Activity act in ((Pipeline)resource).Properties.Activities)
                     {
                         foreach (ActivityInput actInput in act.Inputs)
