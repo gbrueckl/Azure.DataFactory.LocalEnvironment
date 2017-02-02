@@ -27,13 +27,13 @@
   <ItemGroup>
     <Content Include="AzureDataFactory.json" />
     <Content Include="AzureDataFactory.parameters.json" />
+    <Content Include="ADF_Dependencies\gbdomaindata\adfcontainer\package\MyCustomActivity.zip">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <None Include="Deployment.targets">
       <Visible>False</Visible>
     </None>
     <Content Include="Deploy-AzureResourceGroup.ps1" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="ADF_Dependencies\" />
   </ItemGroup>
   <Target Name="GetReferenceAssemblyPaths" />
 </Project>

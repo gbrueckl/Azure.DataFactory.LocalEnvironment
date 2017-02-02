@@ -109,7 +109,8 @@ if ($ValidateOnly) {
     }
 }
 else {
-	$dependencyFolder = "d:\Work\SourceControl\GitHub\Azure.DataFactory.LocalEnvironment\MyARMTemplate\ADF_Dependencies\"
+	$dependencyFolder = "$PSScriptRoot\ADF_Dependencies\"
+	Write-Host "Uploading ADF Dependencies from $dependencyFolder ..."
 
 	Get-ChildItem -Recurse -File -Path $dependencyFolder | ForEach-Object { `
 		$file = $_
