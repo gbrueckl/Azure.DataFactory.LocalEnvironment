@@ -132,7 +132,7 @@ namespace Azure.DataFactory
             {
                 foreach (ProjectItem projItem in _adfProject.Items)
                 {
-                    if (projItem.ItemType == "Script")
+                    if (projItem.ItemType.ToLower() == "script")
                     {
                         using (StreamReader file = File.OpenText(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude))
                         {
@@ -144,12 +144,12 @@ namespace Azure.DataFactory
 
                                 if (jsonObj["$schema"] != null)
                                 {
-                                    schema = jsonObj["$schema"].ToString();
+                                    schema = jsonObj["$schema"].ToString().ToLower();
                                     adfType = schema.Substring(schema.LastIndexOf("/") + 1);
 
                                     if (i == 0)
                                     {
-                                        if (adfType == "Microsoft.DataFactory.Config.json")
+                                        if (adfType == "microsoft.datafactory.config.json")
                                         {
                                             Console.WriteLine("Reading Config: " + projItem.EvaluatedInclude + " ...");
                                             _adfConfigurations.Add(projItem.EvaluatedInclude.Replace(".json", ""), jsonObj);
@@ -160,22 +160,22 @@ namespace Azure.DataFactory
                                         Console.WriteLine("Reading Script: " + projItem.EvaluatedInclude + " ...");
                                         switch (adfType)
                                         {
-                                            case "Microsoft.DataFactory.Pipeline.json": // ADF Pipeline
+                                            case "microsoft.datafactory.pipeline.json": // ADF Pipeline
                                                 tempPipeline = (Pipeline)GetADFObjectFromJson(jsonObj, "Pipeline");
                                                 _adfPipelines.Add(tempPipeline.Name, tempPipeline);
                                                 _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datapipelines", tempPipeline));
                                                 break;
-                                            case "Microsoft.DataFactory.Table.json": // ADF Table/Dataset
+                                            case "microsoft.datafactory.table.json": // ADF Table/Dataset
                                                 tempDataset = (Dataset)GetADFObjectFromJson(jsonObj, "Dataset");
                                                 _adfDataSets.Add(tempDataset.Name, tempDataset);
                                                 _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datasets", tempDataset));
                                                 break;
-                                            case "Microsoft.DataFactory.LinkedService.json":
+                                            case "microsoft.datafactory.linkedservice.json":
                                                 tempLinkedService = (LinkedService)GetADFObjectFromJson(jsonObj, "LinkedService");
                                                 _adfLinkedServices.Add(tempLinkedService.Name, tempLinkedService);
                                                 _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "linkedservices", tempLinkedService));
                                                 break;
-                                            case "Microsoft.DataFactory.Config.json":
+                                            case "microsoft.datafactory.config.json":
                                                 break;
                                             default:
                                                 Console.WriteLine("{0} does not seem to belong to any know ADF Json-Schema and is ignored!", projItem.EvaluatedInclude);
@@ -186,7 +186,7 @@ namespace Azure.DataFactory
                             }
                         }
                     }
-                    if(i == 0 && projItem.ItemType == "Content") // Dependencies
+                    if(i == 0 && projItem.ItemType.ToLower() == "content") // Dependencies
                     {
                         _adfDependencies.Add(projItem.EvaluatedInclude, new FileInfo(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude));
                     }
@@ -507,7 +507,7 @@ namespace Azure.DataFactory
 
                     if (jProp.Value is JValue)
                     {
-                        if (jProp.Value.ToString() == "<config>")
+                        if (jProp.Value.ToString().ToLower() == "<config>")
                         {
                             if (CurrentConfiguration == null)
                                 throw new KeyNotFoundException("Object \"" + objectName + "\" and \"name\": \"" + jProp.Path + "\" requires a Configuration file but none was supplied!");
@@ -527,7 +527,7 @@ namespace Azure.DataFactory
                                     }
                             }
 
-                            if (jProp.Value.ToString() == "<config>")
+                            if (jProp.Value.ToString().ToLower() == "<config>")
                             {
                                 throw new KeyNotFoundException("No Config-Setting could be found for \"" + objectName + "\" and \"name\": \"" + jProp.Path + "\" (or any matching wildcard)");
                             }
@@ -615,12 +615,12 @@ namespace Azure.DataFactory
 
                             for (int i = 0; i < parameters.Count; i++)
                             {
-                                switch(parameters[i])
+                                switch(parameters[i].ToLower())
                                 {
-                                    case "SliceStart":
+                                    case "slicestart":
                                         arguments.Add(SliceStart);
                                         break;
-                                    case "SliceEnd":
+                                    case "sliceend":
                                         arguments.Add(SliceEnd);
                                         break;
                                     default:
@@ -633,19 +633,19 @@ namespace Azure.DataFactory
                     }
 
                     // map all Values that have a partitionedBy clause
-                    if (jProp.Name == "partitionedBy")
+                    if (jProp.Name.ToLower() == "partitionedby")
                     {
                         partitionBy = new Dictionary<string, string>();
                         foreach (JToken part in jProp.Value)
                         {
                             oldText = "{" + part["name"] + "}";
 
-                            switch (part["value"]["date"].ToString())
+                            switch (part["value"]["date"].ToString().ToLower())
                             {
-                                case "SliceStart":
+                                case "slicestart":
                                     newText = string.Format("{0:" + part["value"]["format"] + "}", SliceStart);
                                     break;
-                                case "SliceEnd":
+                                case "sliceend":
                                     newText = string.Format("{0:" + part["value"]["format"] + "}", SliceEnd);
                                     break;
                                 default:
