@@ -7,7 +7,7 @@
         "accountName": "<config>",
         "accessKey": "<config>",
         "poolName": "<config>",
-        "batchUri": "<URL without accountName. Ex: https://<region>.batch.azure.com>",
+        "batchUri": "<config>",
         "linkedServiceName": "AzureStorageLinkedService"
       }
     }

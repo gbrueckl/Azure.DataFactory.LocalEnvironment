@@ -19,6 +19,8 @@ try {
     [Microsoft.Azure.Common.Authentication.AzureSession]::ClientFactory.AddUserAgent("VSAzureTools-$UI$($host.name)".replace(' ','_'), '2.9.6')
 } catch { }
 
+Write-Host "Directory: " + $PSScriptRoot
+
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 3
 
@@ -107,6 +109,27 @@ if ($ValidateOnly) {
     }
 }
 else {
+	$dependencyFolder = "d:\Work\SourceControl\GitHub\Azure.DataFactory.LocalEnvironment\MyARMTemplate\ADF_Dependencies\"
+
+	Get-ChildItem -Recurse -File -Path $dependencyFolder | ForEach-Object { `
+		$file = $_
+
+		$matches = [regex]::Match($file.FullName.Substring($dependencyFolder.Length), "^([^\\]+)\\([^\\]+)\\(.+)$")
+		$StorageAccountName = $matches.Groups[1]
+		$ContainerName = $matches.Groups[2]
+		$BlobName = $matches.Groups[3]
+
+		Write-Host "Uploading ADF-Dependency [$BlobName] ..." -NoNewline
+
+		$StorageAccount = (Get-AzureRmStorageAccount | Where-Object{$_.StorageAccountName -eq $StorageAccountName})
+		# Copy files from the local storage staging location to the storage account container
+		# Create Container if not exists, use previously set $StorageAccount
+		New-AzureStorageContainer -Name $ContainerName -Context $StorageAccount.Context -ErrorAction SilentlyContinue *>&1
+		Set-AzureStorageBlobContent -File $file.FullName -Blob $BlobName -Container $ContainerName -Context $StorageAccount.Context -Force
+
+		Write-Host "Done!" -ForegroundColor Green
+		}
+
     New-AzureRmResourceGroupDeployment -Name ((Get-ChildItem $TemplateFile).BaseName + '-' + ((Get-Date).ToUniversalTime()).ToString('MMdd-HHmm')) `
                                        -ResourceGroupName $ResourceGroupName `
                                        -TemplateFile $TemplateFile `
@@ -118,15 +141,3 @@ else {
         Write-Output '', 'Template deployment returned the following errors:', @(@($ErrorMessages) | ForEach-Object { $_.Exception.Message.TrimEnd("`r`n") })
     }
 }
-
-
-# Execute Post-Deployment Scripts
-Get-ChildItem -Path $PSScriptRoot -File -Filter "Post-*.ps1" | ForEach-Object { & $_.FullName `
-                                                            -ResourceGroupLocation $ResourceGroupLocation `
-                                                            -ResourceGroupName $ResourceGroupName `
-                                                            -UploadArtifacts $UploadArtifacts `
-                                                            -StorageAccountName $StorageAccountName `
-                                                            -StorageContainerName $StorageContainerName `
-                                                            -ArtifactStagingDirectory $ArtifactStagingDirectory `
-                                                            -DSCSourceFolder $DSCSourceFolder 
-                                                        }

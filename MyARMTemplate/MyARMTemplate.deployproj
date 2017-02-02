@@ -30,7 +30,6 @@
     <None Include="Deployment.targets">
       <Visible>False</Visible>
     </None>
-    <Content Include="Deploy-ADF-Dependencies.ps1" />
     <Content Include="Deploy-AzureResourceGroup.ps1" />
   </ItemGroup>
   <ItemGroup>
