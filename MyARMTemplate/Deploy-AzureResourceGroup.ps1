@@ -112,13 +112,13 @@ else {
 	$dependencyFolder = "$PSScriptRoot\ADF_Dependencies\"
 	Write-Host "Uploading ADF Dependencies from $dependencyFolder ..."
 
-	Get-ChildItem -Recurse -File -Path $dependencyFolder | ForEach-Object { `
-		$file = $_
-
+	foreach ($file in Get-ChildItem -Recurse -File -Path $dependencyFolder)
+	{
 		$matches = [regex]::Match($file.FullName.Substring($dependencyFolder.Length), "^([^\\]+)\\([^\\]+)\\(.+)$")
 		$StorageAccountName = $matches.Groups[1]
 		$ContainerName = $matches.Groups[2]
 		$BlobName = $matches.Groups[3]
+
 
 		Write-Host "Uploading ADF-Dependency [$BlobName] ..." -NoNewline
 
@@ -128,10 +128,12 @@ else {
 		$container = New-AzureStorageContainer -Name $ContainerName -Context $StorageAccount.Context -ErrorAction SilentlyContinue *>&1
 		$blob = Set-AzureStorageBlobContent -File $file.FullName -Blob $BlobName -Container $ContainerName -Context $StorageAccount.Context -Force
 
-		Write-Host "Done!" -ForegroundColor Green
 
-		Start-Sleep -s 10
-		}
+		Write-Host "Done!" -ForegroundColor Green
+	}
+	Start-Sleep -s 10
+	Write-Host "Finished uploading all ADF Dependencies from $dependencyFolder !" -ForegroundColor Green
+
 
     New-AzureRmResourceGroupDeployment -Name ((Get-ChildItem $TemplateFile).BaseName + '-' + ((Get-Date).ToUniversalTime()).ToString('MMdd-HHmm')) `
                                        -ResourceGroupName $ResourceGroupName `

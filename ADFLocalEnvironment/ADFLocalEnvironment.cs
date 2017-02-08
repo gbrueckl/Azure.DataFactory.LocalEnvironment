@@ -25,6 +25,7 @@ namespace Azure.DataFactory
         #region Constants
         const string ARM_API_VERSION = "2015-10-01";
         const string ARM_PROJECT_PARAMETER_NAME = "DataFactoryName";
+        const string ARM_DEPENDENCY_FOLDER_NAME = "ADF_Dependencies";
         #endregion
         #region Private Variables
         Project _adfProject;
@@ -305,7 +306,7 @@ namespace Azure.DataFactory
                 {
                     containerName = dependency.Key.Substring(0, dependency.Key.IndexOf('/'));
                     filePath = dependency.Key.Replace(containerName + "/", "").Replace("/", "\\").TrimEnd('\\');
-                    targetFile = new FileInfo(string.Format("{0}\\{1}\\{2}\\{3}\\{4}", armProject.DirectoryPath, "ADF_Dependencies", accountName, containerName, filePath));
+                    targetFile = new FileInfo(string.Format("{0}\\{1}\\{2}\\{3}\\{4}", armProject.DirectoryPath, ARM_DEPENDENCY_FOLDER_NAME, accountName, containerName, filePath));
 
                     targetFile.Directory.Create();
 
@@ -315,71 +316,33 @@ namespace Azure.DataFactory
         }
         public string GetARMPostDeploymentScript()
         {
-            StringBuilder sb = new StringBuilder();
-                        
-            Dictionary<LinkedService, Dictionary<string, FileInfo>> dependenciesToUploade = new Dictionary<LinkedService, Dictionary<string, FileInfo>>();
-            DotNetActivity dotNetActivity;
-            LinkedService linkedService;
-            AzureStorageLinkedService azureBlob;
-            Dictionary<string, FileInfo> tempList;
-            string accountName;
-            string containerName;
+            string ret = @"$dependencyFolder = ""$PSScriptRoot\" + ARM_DEPENDENCY_FOLDER_NAME + @"\""
+Write-Host ""Uploading ADF Dependencies from $dependencyFolder ...""
 
-            foreach (Pipeline pipeline in Pipelines.Values)
-            {
-                foreach(Activity activity in pipeline.Properties.Activities)
-                {
-                    if(activity.TypeProperties is DotNetActivity)
-                    {
-                        dotNetActivity = (DotNetActivity)activity.TypeProperties;
-                        linkedService = LinkedServices[dotNetActivity.PackageLinkedService];
-                        
-                        if(!dependenciesToUploade.ContainsKey(linkedService))
-                        {
-                            dependenciesToUploade.Add(linkedService, new Dictionary<string, FileInfo>());
-                        }
+foreach ($file in Get-ChildItem -Recurse -File -Path $dependencyFolder)
+{
+	$matches = [regex]::Match($file.FullName.Substring($dependencyFolder.Length), ""^([^\\]+)\\([^\\]+)\\(.+)$"")
+	$StorageAccountName = $matches.Groups[1]
+	$ContainerName = $matches.Groups[2]
+	$BlobName = $matches.Groups[3]
 
-                        tempList = dependenciesToUploade[linkedService];
 
-                        if(!tempList.ContainsKey(dotNetActivity.PackageFile))
-                        {
-                            dependenciesToUploade[linkedService].Add(dotNetActivity.PackageFile, _adfDependencies.Single(x => dotNetActivity.PackageFile.EndsWith(x.Key.Replace("Dependencies\\", ""))).Value);
-                        }
-                    }
-                }
-            }
+    Write-Host ""Uploading ADF-Dependency [$BlobName] ..."" -NoNewline
 
-            foreach(KeyValuePair<LinkedService, Dictionary<string, FileInfo>> kvp in dependenciesToUploade)
-            {
-                if (!(kvp.Key.Properties.TypeProperties is AzureStorageLinkedService))
-                {
-                    throw new Exception("Only AzureStorageLinkedServices are supported at the moment!");
-                }
+	$StorageAccount = (Get-AzureRmStorageAccount | Where-Object{$_.StorageAccountName -eq $StorageAccountName})
+	# Copy files from the local storage staging location to the storage account container
+	# Create Container if not exists, use previously set $StorageAccount
+	$container = New-AzureStorageContainer -Name $ContainerName -Context $StorageAccount.Context -ErrorAction SilentlyContinue *>&1
+	$blob = Set-AzureStorageBlobContent -File $file.FullName -Blob $BlobName -Container $ContainerName -Context $StorageAccount.Context -Force
 
-                azureBlob = (AzureStorageLinkedService)kvp.Key.Properties.TypeProperties;
-                Match match = Regex.Match(azureBlob.ConnectionString,".*;AccountName=(.*)[;\b]");
 
-                accountName = match.Groups[1].Value;
+    Write-Host ""Done!"" -ForegroundColor Green
+}
+Start-Sleep -s 10
+Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" -ForegroundColor Green
+";
 
-                sb.AppendLine("# Set our $StorageAccount-variable to the name of the StorageAccount of the LinkedService");
-                sb.AppendLine(string.Format("$StorageAccount = (Get-AzureRmStorageAccount | Where-Object{{$_.StorageAccountName -eq \"{0}\"}})", accountName));
-
-                sb.AppendLine("# Copy files from the local storage staging location to the storage account container");
-
-                foreach(KeyValuePair<string, FileInfo> dependency in kvp.Value)
-                {
-                    containerName = dependency.Key.Substring(0, dependency.Key.IndexOf('/'));
-  
-                    sb.AppendLine("# Create Container if not exists, use previously set $StorageAccount");
-                    sb.AppendLine(string.Format("New-AzureStorageContainer -Name \"{0}\" -Context $StorageAccount.Context -ErrorAction SilentlyContinue *>&1", containerName));
-
-                    sb.AppendLine(string.Format("Set-AzureStorageBlobContent -File \"{0}\" -Blob \"{1}\" -Container \"{2}\" -Context $StorageAccount.Context -Force", dependency.Value.FullName, dependency.Key.Replace(containerName + "/", ""), containerName));
-
-                    sb.AppendLine("");
-                }
-            }
-
-            return sb.ToString();
+            return ret;
         }
 
         public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd, IActivityLogger activityLogger)
@@ -486,6 +449,20 @@ namespace Azure.DataFactory
                 case "datasets": // for Datasets also add a dependency to the LinkedService
                     Dataset ds = (Dataset)resource;
                     dependsOn.Add(ds.Properties.LinkedServiceName);
+                    break;
+                case "linkedservices": // LinkedServices like Batch or HDInsight might depend on other LinkedServices
+                    LinkedService ls = (LinkedService)resource;
+
+                    Regex regex = new Regex(@"""linkedservicename""\s*:\s*""([^""]+)""", RegexOptions.IgnoreCase);
+                    Match m = regex.Match(jsonObject.ToString());
+
+                    if(m.Success)
+                    {
+                        dependsOn.Add(m.Groups[1].Value);
+                    }
+                    break;
+                default:
+                    Console.WriteLine("ResourceType {0} is not supporeted!", resourceType);
                     break;
             }                
 

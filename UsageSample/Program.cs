@@ -5,10 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using Microsoft.Azure.Management.DataFactories.Models;
-using Core = Microsoft.Azure.Management.DataFactories.Core;
-using CoreModels = Microsoft.Azure.Management.DataFactories.Core.Models;
-
 namespace UsageSample
 {
     class Program
@@ -21,11 +17,11 @@ namespace UsageSample
 
             // To Export to an ARM-Template:
             env.ExportARMTemplate("..\\..\\..\\MyARMTemplate\\MyARMTemplate.deployproj", "North Europe");
+            // This is the script that needs to be added to "Deploy-AzureResourceGroup.ps1" once right before "New-AzureRmResourceGroupDeployment"
             string postDeploymentScript = env.GetARMPostDeploymentScript();
 
             // To Execute and Debug a Custom Activity:
             env.ExecuteActivity("DataDownloaderSamplePipeline", "DownloadData", new DateTime(2017, 1, 1), new DateTime(2017, 1, 3));
-
         }
     }
 }
