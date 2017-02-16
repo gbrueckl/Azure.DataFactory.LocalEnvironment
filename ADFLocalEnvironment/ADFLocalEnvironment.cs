@@ -199,11 +199,11 @@ namespace gbrueckl.Azure.DataFactory
             LoadProjectFile(projectFilePath, null);
         }
 
-        public void ExportARMTemplate(string armProjectFilePath, string resourceLocation)
+        public void ExportARMTemplate(string armProjectFilePath, string resourceLocation, bool pausePipelines)
         {
             Project armProject = new Project(armProjectFilePath);
             string outputFilePath = armProject.DirectoryPath + "\\AzureDataFactory.json";
-            JObject armTemplate = GetARMTemplate(resourceLocation);
+            JObject armTemplate = GetARMTemplate(resourceLocation, pausePipelines);
 
             // serialize JSON directly to a file
             using (StreamWriter file = File.CreateText(outputFilePath))
@@ -213,11 +213,20 @@ namespace gbrueckl.Azure.DataFactory
 
             CopyADFDependenciesToARM(armProject);
         }
-        public void ExportAMRTemplate(string outputFilePath)
+
+        public void ExportARMTemplate(string armProjectFilePath, string resourceLocation)
         {
-            ExportARMTemplate(outputFilePath, "[resourceGroup().location]");
+            ExportARMTemplate(armProjectFilePath, resourceLocation, false);
         }
-        public JObject GetARMTemplate(string resourceLocation)
+        public void ExportARMTemplate(string armProjectFilePath)
+        {
+            ExportARMTemplate(armProjectFilePath, "[resourceGroup().location]");
+        }
+        public void ExportARMTemplate(string armProjectFilePath, bool pausePipelines)
+        {
+            ExportARMTemplate(armProjectFilePath, "[resourceGroup().location]", false);
+        }
+        public JObject GetARMTemplate(string resourceLocation, bool pausePipelines)
         {
             JObject ret = new JObject();
             JObject parameters = new JObject();
@@ -247,7 +256,34 @@ namespace gbrueckl.Azure.DataFactory
             resources.Add(dataFactory);
 
             ret.Add("resources", resources);
+
+            if (pausePipelines)
+            {
+                JToken properties;
+                JToken isPaused;
+                // the JPath query is case-sensitive! this is OK here as we set all the values above
+                List<JToken> pipelines = ret.SelectTokens("$.resources[?(@.type=='Microsoft.DataFactory/datafactories')].resources[?(@.type=='datapipelines')]").ToList();
+
+                foreach (JObject pipeline in pipelines)
+                {
+                    if(pipeline.TryGetValue("properties", StringComparison.InvariantCultureIgnoreCase, out properties))
+                    {
+                        if(((JObject)properties).TryGetValue("isPaused", StringComparison.InvariantCultureIgnoreCase, out isPaused))
+                        {
+                            ((JValue)isPaused).Value = true;
+                        }
+                        else
+                        {
+                            properties["isPaused"] = true;
+                        }
+                    }
+                }
+            }
             return ret;
+        }
+        public JObject GetARMTemplate(string resourceLocation)
+        {
+            return GetARMTemplate(resourceLocation, false);
         }
         public JObject GetARMTemplate()
         {
@@ -290,6 +326,10 @@ namespace gbrueckl.Azure.DataFactory
                 }
             }
 
+            // delete any old/existing dependencies
+            if (Directory.Exists(armProject.DirectoryPath + "\\" + ARM_DEPENDENCY_FOLDER_NAME))
+                Directory.Delete(armProject.DirectoryPath + "\\" + ARM_DEPENDENCY_FOLDER_NAME, true);
+
             foreach (KeyValuePair<LinkedService, Dictionary<string, FileInfo>> kvp in dependenciesToUploade)
             {
                 if (!(kvp.Key.Properties.TypeProperties is AzureStorageLinkedService))
@@ -298,7 +338,7 @@ namespace gbrueckl.Azure.DataFactory
                 }
 
                 azureBlob = (AzureStorageLinkedService)kvp.Key.Properties.TypeProperties;
-                Match match = Regex.Match(azureBlob.ConnectionString, ".*;AccountName=(.*)[;\b]");
+                Match match = Regex.Match(azureBlob.ConnectionString, @"[\^;]AccountName=(.*)[;$]");
 
                 accountName = match.Groups[1].Value;
 
