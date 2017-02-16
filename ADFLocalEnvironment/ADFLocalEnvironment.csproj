@@ -7,8 +7,8 @@
     <ProjectGuid>{BA48BB97-9C6F-4D75-ABE7-42C9867587DE}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Azure.DataFactory</RootNamespace>
-    <AssemblyName>Azure.DataFactory.ADFLocalEnvironment</AssemblyName>
+    <RootNamespace>gbrueckl.Azure.DataFactory</RootNamespace>
+    <AssemblyName>gbrueckl.Azure.DataFactory.ADFLocalEnvironment</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>

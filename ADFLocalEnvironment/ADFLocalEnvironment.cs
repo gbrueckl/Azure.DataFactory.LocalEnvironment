@@ -18,7 +18,7 @@ using ICSharpCode.SharpZipLib.Zip;
 using ICSharpCode.SharpZipLib.Core;
 using Microsoft.Azure.Management.DataFactories.Runtime;
 
-namespace Azure.DataFactory
+namespace gbrueckl.Azure.DataFactory
 {
     public class ADFLocalEnvironment
     {
