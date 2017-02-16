@@ -232,8 +232,8 @@ namespace gbrueckl.Azure.DataFactory
             JObject parameters = new JObject();
             JObject tempJObject1 = new JObject();
 
-            ret.Add("contentVersion", "1.0.0.0");
             ret.Add("$schema", "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#");
+            ret.Add("contentVersion", "1.0.0.0");
 
             tempJObject1.Add("type", "string");
             tempJObject1.Add("defaultValue", _projectName);

@@ -16,7 +16,7 @@ namespace UsageSample
             ADFLocalEnvironment env = new ADFLocalEnvironment(path, "MyPrivateConfig");
 
             // To Export to an ARM-Template:
-            env.ExportARMTemplate("..\\..\\..\\MyARMTemplate\\MyARMTemplate.deployproj", "North Europe");
+            env.ExportARMTemplate("..\\..\\..\\MyARMTemplate\\MyARMTemplate.deployproj", "North Europe", true);
             // This is the script that needs to be added to "Deploy-AzureResourceGroup.ps1" once right before "New-AzureRmResourceGroupDeployment"
             string postDeploymentScript = env.GetARMPostDeploymentScript();
 
