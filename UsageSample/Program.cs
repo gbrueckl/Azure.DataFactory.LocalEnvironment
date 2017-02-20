@@ -11,17 +11,38 @@ namespace UsageSample
     {
         static void Main(string[] args)
         {
-            string path = @"..\\..\\..\\\MyADFProject\MyADFProject.dfproj";
+            #region Setup ADF LocalEnvironment
+            ADFLocalEnvironment env = new ADFLocalEnvironment(
+                @"..\..\..\MyADFProject\MyADFProject.dfproj",           // Path to the ADF Project file (absolute or relative)
+                "MyPrivateConfig"                                       // Name of the Config file to use
+                );
+            #endregion
 
-            ADFLocalEnvironment env = new ADFLocalEnvironment(path, "MyPrivateConfig");
-
+            #region Sample: ARM Export
             // To Export to an ARM-Template:
-            env.ExportARMTemplate("..\\..\\..\\MyARMTemplate\\MyARMTemplate.deployproj", "North Europe", true);
+            env.ExportARMTemplate(
+                @"..\..\..\MyARMTemplate\MyARMTemplate.deployproj",     // Path to the ARM Deployment Project file (absolute or relative)
+                "North Europe",                                         // (optional) Region for the deployment, default is the Region of the ResourceGroup
+                true                                                    // (optional) deploy all Pipelines as with IsPaused=true
+                );
+
             // This is the script that needs to be added to "Deploy-AzureResourceGroup.ps1" once right before "New-AzureRmResourceGroupDeployment"
             string postDeploymentScript = env.GetARMPostDeploymentScript();
+            Console.WriteLine(postDeploymentScript);
+            #endregion
 
+            #region Sample: Debug Custom Activity locally
             // To Execute and Debug a Custom Activity:
-            env.ExecuteActivity("DataDownloaderSamplePipeline", "DownloadData", new DateTime(2017, 1, 1), new DateTime(2017, 1, 3));
+            env.ExecuteActivity(
+                "DataDownloaderSamplePipeline",     // Name of the Pipeline
+                "DownloadData",                     // Name of the Activity
+                new DateTime(2017, 1, 1),           // SliceStart
+                new DateTime(2017, 1, 3),           // SliceEnd
+                new ADFConsoleLogger()              // (optional) ActivityLogger
+                );
+            #endregion
         }
     }
 }
+
+

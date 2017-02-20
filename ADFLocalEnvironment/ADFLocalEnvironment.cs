@@ -44,7 +44,7 @@ namespace gbrueckl.Azure.DataFactory
         {
             LoadProjectFile(projectFilePath, configName);
         }
-        public ADFLocalEnvironment(string projectFilePath) : this(projectFilePath, null){ }
+        public ADFLocalEnvironment(string projectFilePath) : this(projectFilePath, null) { }
         #endregion
         #region Public Properties
         public Dictionary<string, LinkedService> LinkedServices
@@ -129,7 +129,7 @@ namespace gbrueckl.Azure.DataFactory
             Dataset tempDataset;
             Pipeline tempPipeline;
 
-            for(int i = 0; i < 2; i++) // iterate twice, first to read config-files and second to read other files and apply the config directly
+            for (int i = 0; i < 2; i++) // iterate twice, first to read config-files and second to read other files and apply the config directly
             {
                 foreach (ProjectItem projItem in _adfProject.Items)
                 {
@@ -181,13 +181,13 @@ namespace gbrueckl.Azure.DataFactory
                                             default:
                                                 Console.WriteLine("{0} does not seem to belong to any know ADF Json-Schema and is ignored!", projItem.EvaluatedInclude);
                                                 break;
-                                        }                                      
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    if(i == 0 && projItem.ItemType.ToLower() == "content") // Dependencies
+                    if (i == 0 && projItem.ItemType.ToLower() == "content") // Dependencies
                     {
                         _adfDependencies.Add(projItem.EvaluatedInclude, new FileInfo(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude));
                     }
@@ -205,11 +205,24 @@ namespace gbrueckl.Azure.DataFactory
             string outputFilePath = armProject.DirectoryPath + "\\AzureDataFactory.json";
             JObject armTemplate = GetARMTemplate(resourceLocation, pausePipelines);
 
-            // serialize JSON directly to a file
+            // serialize JSON to our ARM file
             using (StreamWriter file = File.CreateText(outputFilePath))
             {
                 file.Write(JsonConvert.SerializeObject(armTemplate, new JsonSerializerSettings { DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind }));
             }
+
+            outputFilePath = outputFilePath.Replace(".json", ".parameters.json");
+            // write our ARM parameters file
+            using (StreamWriter file = File.CreateText(outputFilePath))
+            {
+                file.Write(@"{{
+    ""$schema"": ""https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#"",
+    ""contentVersion"": ""1.0.0.0"",
+    ""parameters"": {{
+        ""DataFactoryName"": {{ ""value"": ""{0}"" }}
+    }}
+}}", _projectName);
+            }         
 
             CopyADFDependenciesToARM(armProject);
         }
@@ -356,7 +369,11 @@ namespace gbrueckl.Azure.DataFactory
         }
         public string GetARMPostDeploymentScript()
         {
-            string ret = @"$dependencyFolder = ""$PSScriptRoot\" + ARM_DEPENDENCY_FOLDER_NAME + @"\""
+            string ret = @"
+#region ADF Dependency Upload
+#the following code must be placed right before the New-AzureRmResourceGroupDeployment command in the Deploy-AzureResourceGroup.ps1 script of your ARM Template
+#please check for unwanted linebreaks in case you copied the script!
+$dependencyFolder = ""$PSScriptRoot\" + ARM_DEPENDENCY_FOLDER_NAME + @"\""
 Write-Host ""Uploading ADF Dependencies from $dependencyFolder ...""
 
 foreach ($file in Get-ChildItem -Recurse -File -Path $dependencyFolder)
@@ -375,11 +392,12 @@ foreach ($file in Get-ChildItem -Recurse -File -Path $dependencyFolder)
 	$container = New-AzureStorageContainer -Name $ContainerName -Context $StorageAccount.Context -ErrorAction SilentlyContinue *>&1
 	$blob = Set-AzureStorageBlobContent -File $file.FullName -Blob $BlobName -Container $ContainerName -Context $StorageAccount.Context -Force
 
-
     Write-Host ""Done!"" -ForegroundColor Green
 }
 Start-Sleep -s 10
 Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" -ForegroundColor Green
+#endregion
+# followed by New-AzureRmResourceGroupDeployment ...
 ";
 
             return ret;

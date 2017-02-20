@@ -25,11 +25,9 @@
   <Import Condition=" Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Deployment\1.1\DeploymentProject.targets') " Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Deployment\1.1\DeploymentProject.targets" />
   <!-- vertag<:>end -->
   <ItemGroup>
-    <Content Include="AzureDataFactory.json" />
-    <Content Include="AzureDataFactory.parameters.json" />
-    <Content Include="ADF_Dependencies\gbdomaindata\adfcontainer\package\MyCustomActivity.zip">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <None Include="ADF_Dependencies\gbdomaindata\adfcontainer\package\MyCustomActivity.zip" />
+    <None Include="AzureDataFactory.json" />
+    <None Include="AzureDataFactory.parameters.json" />
     <None Include="Deployment.targets">
       <Visible>False</Visible>
     </None>

@@ -109,6 +109,10 @@ if ($ValidateOnly) {
     }
 }
 else {
+	
+	#region ADF Dependency Upload
+	#the following code must be placed right before the New-AzureRmResourceGroupDeployment command in the Deploy-AzureResourceGroup.ps1 script of your ARM Template
+	#please check for unwanted linebreaks in case you copied the script!
 	$dependencyFolder = "$PSScriptRoot\ADF_Dependencies\"
 	Write-Host "Uploading ADF Dependencies from $dependencyFolder ..."
 
@@ -133,7 +137,8 @@ else {
 	}
 	Start-Sleep -s 10
 	Write-Host "Finished uploading all ADF Dependencies from $dependencyFolder !" -ForegroundColor Green
-
+	#endregion
+	# followed by New-AzureRmResourceGroupDeployment ...
 
     New-AzureRmResourceGroupDeployment -Name ((Get-ChildItem $TemplateFile).BaseName + '-' + ((Get-Date).ToUniversalTime()).ToString('MMdd-HHmm')) `
                                        -ResourceGroupName $ResourceGroupName `
