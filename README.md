@@ -1,6 +1,6 @@
 # Azure.DataFactory.LocalEnvironment
 This repository provides some tools which make it easier to work with Azure Data Factory (ADF). It mainly contains two features:
-- Debug Custom .Net Activities locally
+- Debug Custom .Net Activities locally (within VS and without deployment to the ADF Service!)
 - Export existing ADF Visual Studio projects a Azure Resource Manager (ARM) template for deployment
 
 In addition, the repository also contains various samples to demonstrate how to work with the ADF Local Environment.
