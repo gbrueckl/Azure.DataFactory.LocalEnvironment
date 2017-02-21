@@ -50,4 +50,4 @@ If your project actually contains dependencies, you also need to modify the Powe
 ![Alt text](http://files.gbrueckl.at/github/Azure.DataFactory.LocalEnvironment/ADF_LocalEnvironment_ExtendPowerShellScript.png "Extend PowerShell Script")
 
 Now you can deploy your ADF project just like any other regular ARM template:
-![Alt text](http://files.gbrueckl.at/github/Azure.DataFactory.LocalEnvironment/DeployARMTemplate.png "Deploy ARM template")
+![Alt text](http://files.gbrueckl.at/github/Azure.DataFactory.LocalEnvironment/ADF_LocalEnvironment_DeployARMTemplate.png "Deploy ARM template")
