@@ -199,7 +199,7 @@ namespace gbrueckl.Azure.DataFactory
             LoadProjectFile(projectFilePath, null);
         }
 
-        public void ExportARMTemplate(string armProjectFilePath, string resourceLocation, bool pausePipelines)
+        public void ExportARMTemplate(string armProjectFilePath, string resourceLocation, bool overwriteParametersFile, bool pausePipelines)
         {
             Project armProject = new Project(armProjectFilePath);
             string outputFilePath = armProject.DirectoryPath + "\\AzureDataFactory.json";
@@ -211,33 +211,43 @@ namespace gbrueckl.Azure.DataFactory
                 file.Write(JsonConvert.SerializeObject(armTemplate, new JsonSerializerSettings { DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind }));
             }
 
+            
             outputFilePath = outputFilePath.Replace(".json", ".parameters.json");
-            // write our ARM parameters file
-            using (StreamWriter file = File.CreateText(outputFilePath))
+            
+            // create/overwrite the parametersFile if it does not exist yet or it is explicitly specified
+            if (overwriteParametersFile || !File.Exists(outputFilePath))
             {
-                file.Write(@"{{
+                // write our ARM parameters file
+                using (StreamWriter file = File.CreateText(outputFilePath))
+                {
+                    file.Write(@"{{
     ""$schema"": ""https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#"",
     ""contentVersion"": ""1.0.0.0"",
     ""parameters"": {{
         ""DataFactoryName"": {{ ""value"": ""{0}"" }}
     }}
 }}", _projectName);
-            }         
+                }
+            }       
 
             CopyADFDependenciesToARM(armProject);
         }
 
+        public void ExportARMTemplate(string armProjectFilePath, string resourceLocation, bool overwriteParametersFile)
+        {
+            ExportARMTemplate(armProjectFilePath, resourceLocation, overwriteParametersFile, false);
+        }
         public void ExportARMTemplate(string armProjectFilePath, string resourceLocation)
         {
-            ExportARMTemplate(armProjectFilePath, resourceLocation, false);
+            ExportARMTemplate(armProjectFilePath, resourceLocation, false, false);
         }
         public void ExportARMTemplate(string armProjectFilePath)
         {
             ExportARMTemplate(armProjectFilePath, "[resourceGroup().location]");
         }
-        public void ExportARMTemplate(string armProjectFilePath, bool pausePipelines)
+        public void ExportARMTemplate(string armProjectFilePath, bool overwriteParametersFile)
         {
-            ExportARMTemplate(armProjectFilePath, "[resourceGroup().location]", false);
+            ExportARMTemplate(armProjectFilePath, "[resourceGroup().location]", overwriteParametersFile, false);
         }
         public JObject GetARMTemplate(string resourceLocation, bool pausePipelines)
         {

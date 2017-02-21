@@ -23,6 +23,7 @@ namespace UsageSample
             env.ExportARMTemplate(
                 @"..\..\..\MyARMTemplate\MyARMTemplate.deployproj",     // Path to the ARM Deployment Project file (absolute or relative)
                 "North Europe",                                         // (optional) Region for the deployment, default is the Region of the ResourceGroup
+                false,                                                  // (optional) can be used to avoid overwriting the Parameters file
                 true                                                    // (optional) deploy all Pipelines as with IsPaused=true
                 );
 
