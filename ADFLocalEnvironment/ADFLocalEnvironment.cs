@@ -195,7 +195,10 @@ namespace gbrueckl.Azure.DataFactory
                     {
                         if (projItem.ItemType.ToLower() == "content")
                         {
-                            _adfDependencies.Add(projItem.EvaluatedInclude, new FileInfo(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude));
+                            if (projItem.EvaluatedInclude.ToLower().StartsWith("dependencies"))
+                            {
+                                _adfDependencies.Add(string.Join("\\", projItem.EvaluatedInclude.GetTokens('\\', 1, -1, false)), new FileInfo(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude));
+                            }
                         }
 
                         if (projItem.ItemType.ToLower() == "projectreference")
@@ -203,7 +206,7 @@ namespace gbrueckl.Azure.DataFactory
                             Console.ForegroundColor = ConsoleColor.Yellow;
                             Console.WriteLine("A Project-Reference was found: {0} ! {1}The Code from the last build of the ADF project will be used ({2}). Make sure to rebuild the ADF project if it does not reflect your latest changes!", projItem.EvaluatedInclude, Environment.NewLine, buildPath);
 
-                            if(!Directory.Exists(_adfProject.DirectoryPath + "\\" + buildPath))
+                            if (!Directory.Exists(_adfProject.DirectoryPath + "\\" + buildPath))
                             {
                                 throw new Exception(string.Format("The ADF project was not yet built into \"{0}\"! Make sure the Visual Studio Environments and OutputPaths are in Sync!", buildPath));
                             }
@@ -250,9 +253,9 @@ namespace gbrueckl.Azure.DataFactory
                 file.Write(JsonConvert.SerializeObject(armTemplate, new JsonSerializerSettings { DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind }));
             }
 
-            
+
             outputFilePath = outputFilePath.Replace(".json", ".parameters.json");
-            
+
             // create/overwrite the parametersFile if it does not exist yet or it is explicitly specified
             if (overwriteParametersFile || !File.Exists(outputFilePath))
             {
@@ -267,7 +270,7 @@ namespace gbrueckl.Azure.DataFactory
     }}
 }}", _projectName);
                 }
-            }       
+            }
 
             CopyADFDependenciesToARM(armProject);
         }
@@ -328,9 +331,9 @@ namespace gbrueckl.Azure.DataFactory
 
                 foreach (JObject pipeline in pipelines)
                 {
-                    if(pipeline.TryGetValue("properties", StringComparison.InvariantCultureIgnoreCase, out properties))
+                    if (pipeline.TryGetValue("properties", StringComparison.InvariantCultureIgnoreCase, out properties))
                     {
-                        if(((JObject)properties).TryGetValue("isPaused", StringComparison.InvariantCultureIgnoreCase, out isPaused))
+                        if (((JObject)properties).TryGetValue("isPaused", StringComparison.InvariantCultureIgnoreCase, out isPaused))
                         {
                             ((JValue)isPaused).Value = true;
                         }
@@ -397,13 +400,13 @@ namespace gbrueckl.Azure.DataFactory
                 {
                     d.Delete(true);
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Thread.Sleep(3000);
                     d.Delete(true);
                 }
             }
-                
+
 
             foreach (KeyValuePair<LinkedService, Dictionary<string, FileInfo>> kvp in dependenciesToUploade)
             {
@@ -490,7 +493,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                 // this is the same behavior as if the activity was executed with ADF Service!!!
                 activityLinkedServices.Add(_adfLinkedServices.Values.Single(x => x.Name == activityDatasets[i].Properties.LinkedServiceName));
             }
-          
+
             DotNetActivity dotNetActivityMeta = (DotNetActivity)activityMeta.TypeProperties;
 
             FileInfo zipFile = _adfDependencies.Single(x => dotNetActivityMeta.PackageFile.EndsWith(x.Value.Name)).Value;
@@ -502,7 +505,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
 
             ret = (Dictionary<string, string>)dotNetActivityExecute.Execute(activityLinkedServices, activityDatasets, activityMeta, activityLogger);
 
-            if(Directory.Exists(dependencyPath))
+            if (Directory.Exists(dependencyPath))
             {
                 Directory.Delete(dependencyPath, true);
             }
@@ -578,7 +581,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                     Regex regex = new Regex(@"""linkedservicename""\s*:\s*""([^""]+)""", RegexOptions.IgnoreCase);
                     Match m = regex.Match(jsonObject.ToString());
 
-                    if(m.Success)
+                    if (m.Success)
                     {
                         dependsOn.Add(m.Groups[1].Value);
                     }
@@ -586,7 +589,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                 default:
                     Console.WriteLine("ResourceType {0} is not supporeted!", resourceType);
                     break;
-            }                
+            }
 
             jsonObject.Add("dependsOn", dependsOn);
 
@@ -672,16 +675,16 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             }
 
             zipFile.Close();
-            
+
 
             return new DirectoryInfo(localFolder);
         }
-        private JObject MapSlices(JObject jsonObject, DateTime SliceStart, DateTime SliceEnd)
+        private JObject MapSlices(JObject jsonObject, DateTime sliceStart, DateTime sliceEnd)
         {
             JProperty jProp;
             string objectName = jsonObject["name"].ToString();
 
-            Regex regex = new Regex(@"\$\$Text.Format\('(.*)',(.*)\)");
+            Regex regex = new Regex(@"^\$\$Text.Format\('(.*)',(.*)\)");
 
             string textTemplate;
             string textParameters;
@@ -691,8 +694,11 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
 
             string oldText;
             string newText;
+            Dictionary<string, DateTime> dateValues = new Dictionary<string, DateTime>(2);
             Dictionary<string, string> partitionBy = new Dictionary<string, string>(); ;
 
+            dateValues.Add("SliceStart", sliceStart);
+            dateValues.Add("SliceEnd", sliceEnd);
 
             foreach (JToken jToken in jsonObject.Descendants())
             {
@@ -703,31 +709,9 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                     // map all Values that are like "$$Text.Format(..., SliceStart)"
                     if (jProp.Value is JValue)
                     {
-                        Match match = regex.Match(jProp.Value.ToString());
-                        if (match.Groups.Count == 3)
+                        if(jProp.Value.ToString().StartsWith("$$"))
                         {
-                            textTemplate = match.Groups[1].Value;
-                            textParameters = match.Groups[2].Value;
-
-                            parameters = textParameters.Split(',').Select(p => p.Trim()).ToList();
-                            arguments = new List<object>(parameters.Count);
-
-                            for (int i = 0; i < parameters.Count; i++)
-                            {
-                                switch(parameters[i].ToLower())
-                                {
-                                    case "slicestart":
-                                        arguments.Add(SliceStart);
-                                        break;
-                                    case "sliceend":
-                                        arguments.Add(SliceEnd);
-                                        break;
-                                    default:
-                                        throw new KeyNotFoundException("Currently only the values 'SliceStart' and 'SliceEnd' are supported for $$Text.Format");
-                                }
-                            }
-
-                            jProp.Value = new JValue(string.Format(textTemplate, arguments.ToArray()));
+                            jProp.Value = new JValue((string)ADFFunctionResolver.ParseFunctionText(jProp.Value.ToString(), dateValues));
                         }
                     }
 
@@ -739,17 +723,8 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                         {
                             oldText = "{" + part["name"] + "}";
 
-                            switch (part["value"]["date"].ToString().ToLower())
-                            {
-                                case "slicestart":
-                                    newText = string.Format("{0:" + part["value"]["format"] + "}", SliceStart);
-                                    break;
-                                case "sliceend":
-                                    newText = string.Format("{0:" + part["value"]["format"] + "}", SliceEnd);
-                                    break;
-                                default:
-                                    throw new Exception("PartitionedBy currently only works with 'SliceStart' and 'SliceEnd'");
-                            }
+                            // dont know if PartitionedBy even supports custom functions, anyway, it would work this way
+                            newText = (string)ADFFunctionResolver.ParseFunctionText("$$Text.Format('{0:" + part["value"]["format"].ToString().TrimStart('$') + "}', " + part["value"]["date"].ToString().TrimStart('$') + ")", dateValues);
 
                             partitionBy.Add(oldText, newText);
                         }
@@ -796,23 +771,27 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             return jObject;
         }
 
-        public static List<string>GetTokens(this string text, char delimiter, int start, int count, bool reverse)
+        public static List<string> GetTokens(this string text, char delimiter, int start, int count, bool reverse)
         {
             List<string> ret = new List<string>();
 
             ret = text.Split(delimiter).ToList();
 
-            if(reverse)
+            if (reverse)
                 ret.Reverse();
 
+            if (start > 0)
+                ret.RemoveRange(0, start);
 
-            ret.RemoveRange(0, start);
-            ret = ret.GetRange(0, count);
+            if (count > 0)
+                ret = ret.GetRange(0, count);
 
-            if(reverse)
+            if (reverse)
                 ret.Reverse();
 
             return ret;
         }
     }
 }
+
+

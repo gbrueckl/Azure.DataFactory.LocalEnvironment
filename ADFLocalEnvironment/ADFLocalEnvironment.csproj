@@ -89,6 +89,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ADFConsoleLogger.cs" />
+    <Compile Include="ADFFunctionResolver.cs" />
     <Compile Include="ADFLocalEnvironment.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
