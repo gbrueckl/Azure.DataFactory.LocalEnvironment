@@ -17,6 +17,8 @@ using Microsoft.Azure.Management.DataFactories.Common.Models;
 using ICSharpCode.SharpZipLib.Zip;
 using ICSharpCode.SharpZipLib.Core;
 using Microsoft.Azure.Management.DataFactories.Runtime;
+using System.Configuration;
+using System.Threading;
 
 namespace gbrueckl.Azure.DataFactory
 {
@@ -125,6 +127,7 @@ namespace gbrueckl.Azure.DataFactory
 
             string schema;
             string adfType;
+            string buildPath = string.Join("\\", AppDomain.CurrentDomain.BaseDirectory.GetTokens('\\', 0, 3, true));
             LinkedService tempLinkedService;
             Dataset tempDataset;
             Pipeline tempPipeline;
@@ -187,9 +190,44 @@ namespace gbrueckl.Azure.DataFactory
                             }
                         }
                     }
-                    if (i == 0 && projItem.ItemType.ToLower() == "content") // Dependencies
+                    // we iterate twice, in the FIRST loop we add the dependencies from the Dependencies-Folder
+                    if (i == 0)
                     {
-                        _adfDependencies.Add(projItem.EvaluatedInclude, new FileInfo(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude));
+                        if (projItem.ItemType.ToLower() == "content")
+                        {
+                            _adfDependencies.Add(projItem.EvaluatedInclude, new FileInfo(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude));
+                        }
+
+                        if (projItem.ItemType.ToLower() == "projectreference")
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine("A Project-Reference was found: {0} ! {1}The Code from the last build of the ADF project will be used ({2}). Make sure to rebuild the ADF project if it does not reflect your latest changes!", projItem.EvaluatedInclude, Environment.NewLine, buildPath);
+
+                            if(!Directory.Exists(_adfProject.DirectoryPath + "\\" + buildPath))
+                            {
+                                throw new Exception(string.Format("The ADF project was not yet built into \"{0}\"! Make sure the Visual Studio Environments and OutputPaths are in Sync!", buildPath));
+                            }
+                            Console.ForegroundColor = ConsoleColor.White;
+                        }
+                    }
+
+                    // we iterate twice, in the SECOND loop we add the dependencies from the Project-References which are zipped during the build of the ADF project
+                    if (i == 1)
+                    {
+                        if (projItem.ItemType.ToLower() == "_outputpathitem")
+                        {
+                            string path = _adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude + "Dependencies";
+                            foreach (string file in Directory.EnumerateFiles(path))
+                            {
+                                // Find ZIP files in the ADF output Dependencies directory
+                                if (string.Equals(Path.GetExtension(file), ".zip", StringComparison.InvariantCultureIgnoreCase))
+                                {
+                                    // Dependencies from the Dependencies folder (added in first loop) overrule Project-References!
+                                    if (!_adfDependencies.ContainsKey(Path.GetFileName(file)))
+                                        _adfDependencies.Add(Path.GetFileName(file), new FileInfo(file));
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -199,6 +237,7 @@ namespace gbrueckl.Azure.DataFactory
             LoadProjectFile(projectFilePath, null);
         }
 
+        #region ARM Export
         public void ExportARMTemplate(string armProjectFilePath, string resourceLocation, bool overwriteParametersFile, bool pausePipelines)
         {
             Project armProject = new Project(armProjectFilePath);
@@ -349,9 +388,22 @@ namespace gbrueckl.Azure.DataFactory
                 }
             }
 
-            // delete any old/existing dependencies
-            if (Directory.Exists(armProject.DirectoryPath + "\\" + ARM_DEPENDENCY_FOLDER_NAME))
-                Directory.Delete(armProject.DirectoryPath + "\\" + ARM_DEPENDENCY_FOLDER_NAME, true);
+            DirectoryInfo d = new DirectoryInfo(armProject.DirectoryPath + "\\" + ARM_DEPENDENCY_FOLDER_NAME);
+            // delete any old/existing dependencies in ARM output folder
+            if (d.Exists)
+            {
+                // there is sometimes a temporary lock on the files/folder when we try to delete it ?!?
+                try
+                {
+                    d.Delete(true);
+                }
+                catch(Exception e)
+                {
+                    Thread.Sleep(3000);
+                    d.Delete(true);
+                }
+            }
+                
 
             foreach (KeyValuePair<LinkedService, Dictionary<string, FileInfo>> kvp in dependenciesToUploade)
             {
@@ -412,7 +464,8 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
 
             return ret;
         }
-
+        #endregion
+        #region Custom Activity Debugger
         public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd, IActivityLogger activityLogger)
         {
             Dictionary<string, string> ret = null;
@@ -460,6 +513,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
         {
             return ExecuteActivity(pipelineName, activityName, sliceStart, sliceEnd, new ADFConsoleLogger());
         }
+        #endregion
         #endregion
         #region Private Functions
         private JObject CurrentConfiguration
@@ -740,6 +794,25 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             }
 
             return jObject;
+        }
+
+        public static List<string>GetTokens(this string text, char delimiter, int start, int count, bool reverse)
+        {
+            List<string> ret = new List<string>();
+
+            ret = text.Split(delimiter).ToList();
+
+            if(reverse)
+                ret.Reverse();
+
+
+            ret.RemoveRange(0, start);
+            ret = ret.GetRange(0, count);
+
+            if(reverse)
+                ret.Reverse();
+
+            return ret;
         }
     }
 }

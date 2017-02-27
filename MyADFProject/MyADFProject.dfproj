@@ -35,7 +35,14 @@
     <Script Include="MyPrivateConfig.json" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Dependencies\MyCustomActivity.zip">
+    <ProjectReference Include="..\MyCustomActivity\MyCustomActivity.csproj">
+      <Name>MyCustomActivity</Name>
+      <Project>{0573fe24-6802-4b6a-a8b5-be3487d668d3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Dependencies\MyOtherExternalReference.zip">
       <SubType>Content</SubType>
     </Content>
   </ItemGroup>

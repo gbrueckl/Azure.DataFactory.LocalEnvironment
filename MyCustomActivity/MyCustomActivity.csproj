@@ -119,11 +119,11 @@
     <Error Condition="Exists('..\packages\Microsoft.Bcl.Build.1.0.14\tools\Microsoft.Bcl.Build.targets')" Text="The build restored NuGet packages. Build the project again to include these packages in the build. For more information, see http://go.microsoft.com/fwlink/?LinkID=317568." HelpKeyword="BCLBUILD2002" />
   </Target>
   <PropertyGroup>
-    <PostBuildEvent>"C:\Program Files\7-Zip\7z.exe" a "$(TargetDir)$(ProjectName).zip" "$(TargetDir)*"
-copy /Y "$(TargetDir)$(ProjectName).zip" "$(SolutionDir)MyADFProject\Dependencies\"</PostBuildEvent>
+    <PostBuildEvent>rem "C:\Program Files\7-Zip\7z.exe" a "$(TargetDir)$(ProjectName).zip" "$(TargetDir)*"
+rem copy /Y "$(TargetDir)$(ProjectName).zip" "$(SolutionDir)MyADFProject\Dependencies\"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PreBuildEvent>del /F /Q "$(TargetDir)$(ProjectName).zip"</PreBuildEvent>
+    <PreBuildEvent>rem del /F /Q "$(TargetDir)$(ProjectName).zip"</PreBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
