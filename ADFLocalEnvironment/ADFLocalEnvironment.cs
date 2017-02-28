@@ -19,6 +19,7 @@ using ICSharpCode.SharpZipLib.Core;
 using Microsoft.Azure.Management.DataFactories.Runtime;
 using System.Configuration;
 using System.Threading;
+using System.Security.Policy;
 
 namespace gbrueckl.Azure.DataFactory
 {
@@ -472,7 +473,12 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
         public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd, IActivityLogger activityLogger)
         {
             Dictionary<string, string> ret = null;
-            string dependencyPath = Path.Combine(Environment.CurrentDirectory, "CustomActivityDependencies");
+            string dependencyPath = Path.Combine(Environment.CurrentDirectory, "CustomActivityDependencies_TEMP");
+
+            if (Directory.Exists(dependencyPath))
+            {
+                Directory.Delete(dependencyPath, true);
+            }
 
             Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles[Pipelines[pipelineName].Name + ".json"], sliceStart, sliceEnd), "Pipeline");
             Activity activityMeta = pipeline.GetActivityByName(activityName);
@@ -502,12 +508,17 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             Assembly assembly = Assembly.LoadFrom(dependencyPath + "\\" + dotNetActivityMeta.AssemblyName);
             Type type = assembly.GetType(dotNetActivityMeta.EntryPoint);
             IDotNetActivity dotNetActivityExecute = Activator.CreateInstance(type) as IDotNetActivity;
+           
 
             ret = (Dictionary<string, string>)dotNetActivityExecute.Execute(activityLinkedServices, activityDatasets, activityMeta, activityLogger);
 
             if (Directory.Exists(dependencyPath))
             {
-                Directory.Delete(dependencyPath, true);
+                try
+                {
+                    Directory.Delete(dependencyPath, true);
+                }
+                catch (UnauthorizedAccessException e) { }
             }
 
             return ret;
@@ -686,12 +697,6 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
 
             Regex regex = new Regex(@"^\$\$Text.Format\('(.*)',(.*)\)");
 
-            string textTemplate;
-            string textParameters;
-
-            List<string> parameters;
-            List<object> arguments;
-
             string oldText;
             string newText;
             Dictionary<string, DateTime> dateValues = new Dictionary<string, DateTime>(2);
@@ -790,6 +795,22 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                 ret.Reverse();
 
             return ret;
+        }
+    }
+
+    public class DynamicAssemblyLoadProxy : MarshalByRefObject
+    {
+        public Assembly GetAssembly(string assemblyPath)
+        {
+            try
+            {
+                return Assembly.LoadFrom(assemblyPath);
+            }
+            catch (Exception)
+            {
+                return null;
+                // throw new InvalidOperationException(ex);
+            }
         }
     }
 }
