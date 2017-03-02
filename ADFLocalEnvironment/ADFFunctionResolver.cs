@@ -83,7 +83,6 @@ namespace gbrueckl.Azure.DataFactory
                         return text;
                     return intParameter;
                 }
-                
             }
             return null;
         }

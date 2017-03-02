@@ -14,7 +14,7 @@ namespace UsageSample
             #region Setup ADF LocalEnvironment
             ADFLocalEnvironment env = new ADFLocalEnvironment(
                 @"..\..\..\MyADFProject\MyADFProject.dfproj",           // Path to the ADF Project file (absolute or relative)
-                "MyPrivateConfig"                                       // Name of the Config file to use
+                "MyConfig"                                       // Name of the Config file to use
                 );
             #endregion
 

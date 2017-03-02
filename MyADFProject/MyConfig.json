@@ -4,6 +4,10 @@
     {
       "name": "$.properties.activities[*].policy.timeout",
       "value": "00:30:00"
+    },
+    {
+      "name": "$.properties.isPaused",
+      "value": true
     }
   ],
   "AzureBatchLinkedService": [

@@ -477,7 +477,14 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
 
             if (Directory.Exists(dependencyPath))
             {
-                Directory.Delete(dependencyPath, true);
+                try
+                {
+                    // it might happen that two activities are executed in the same run and the directory is blocked
+                    // so we need to catch the exception and continue with our execution
+                    // the folder might not be cleaned up properly in this case but during the execution of the first activity it will
+                    Directory.Delete(dependencyPath, true);
+                }
+                catch (UnauthorizedAccessException e) { }
             }
 
             Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles[Pipelines[pipelineName].Name + ".json"], sliceStart, sliceEnd), "Pipeline");
@@ -516,6 +523,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             {
                 try
                 {
+                    // This might fail as the DLL is still loaded in the current Application Domain
                     Directory.Delete(dependencyPath, true);
                 }
                 catch (UnauthorizedAccessException e) { }
@@ -608,44 +616,18 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
         }
         private void ApplyConfiguration(ref JObject jsonObject)
         {
-            JProperty jProp;
-            List<JToken> find;
+            List<JToken> matches;
             string objectName = jsonObject["name"].ToString();
 
-            foreach (JToken jToken in jsonObject.Descendants())
+            foreach (JToken result in CurrentConfiguration.SelectTokens(string.Format("$.{0}.[*]", objectName)))
             {
-                if (jToken is JProperty)
+                // try to select the token specified in the config in the file
+                // this logic is necessary as the config might contain JSONPath wildcards
+                matches = jsonObject.Root.SelectTokens(result["name"].ToString()).ToList();
+
+                for(int i = 0; i< matches.Count; i++)
                 {
-                    jProp = (JProperty)jToken;
-
-                    if (jProp.Value is JValue)
-                    {
-                        if (jProp.Value.ToString().ToLower() == "<config>")
-                        {
-                            if (CurrentConfiguration == null)
-                                throw new KeyNotFoundException("Object \"" + objectName + "\" and \"name\": \"" + jProp.Path + "\" requires a Configuration file but none was supplied!");
-
-                            // get all Config-settings for the current file
-                            foreach (JToken result in CurrentConfiguration.SelectTokens(string.Format("$.{0}.[*]", objectName)))
-                            {
-                                // try to select the token specified in the config in the file
-                                // this logic is necessary as the config might contain JSONPath wildcards
-                                find = jProp.Root.SelectTokens(result["name"].ToString()).ToList();
-
-                                if (find.Count > 0) // token was found
-                                    if (find.Select(x => x.Path).Contains(jProp.Path)) // found token has the same path as the original token
-                                    {
-                                        jProp.Value = result["value"];
-                                        break;
-                                    }
-                            }
-
-                            if (jProp.Value.ToString().ToLower() == "<config>")
-                            {
-                                throw new KeyNotFoundException("No Config-Setting could be found for \"" + objectName + "\" and \"name\": \"" + jProp.Path + "\" (or any matching wildcard)");
-                            }
-                        }
-                    }
+                    ((JValue)matches[i]).Value = ((JValue)result["value"]).Value;
                 }
             }
         }
@@ -686,7 +668,6 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             }
 
             zipFile.Close();
-
 
             return new DirectoryInfo(localFolder);
         }
@@ -795,22 +776,6 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                 ret.Reverse();
 
             return ret;
-        }
-    }
-
-    public class DynamicAssemblyLoadProxy : MarshalByRefObject
-    {
-        public Assembly GetAssembly(string assemblyPath)
-        {
-            try
-            {
-                return Assembly.LoadFrom(assemblyPath);
-            }
-            catch (Exception)
-            {
-                return null;
-                // throw new InvalidOperationException(ex);
-            }
         }
     }
 }
