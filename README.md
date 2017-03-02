@@ -5,6 +5,13 @@ This repository provides some tools which make it easier to work with Azure Data
 
 In addition, the repository also contains various samples to demonstrate how to work with the ADF Local Environment.
 
+## Update 2017-03-02:
+- added support for some of the built-in ADF Date/Time functions
+- you are now able to debug multiple activties in the same run
+- temporary fix so no exception is thrown during clean-up of the temporary files after debugging
+- fix to overwrite all settings defined in the config-file (not just the ones with a value of "\<config\>")
+
+
 #Debug Custom .Net Activities
 To set everything up, it is recommended to add a new Console Application project to your existing VS solution which already contains the code for the custom activity and also the ADF project itself. Other setups (e.g. with multiple solutions/projects) would also work but make it much harder to develop and debug your custom code.
 Once you have added your Console Application, you need to add a reference to the LocalEnvironment-Assembly. (For convenience I also included the built DLL under [\ADFLocalEnvironment\Download\gbrueckl.Azure.DataFactory.ADFLocalEnvironment.dll]
