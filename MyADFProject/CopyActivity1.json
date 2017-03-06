@@ -1,6 +1,6 @@
 ﻿{
   "$schema": "http://datafactories.schema.management.azure.com/schemas/2015-09-01/Microsoft.DataFactory.Pipeline.json",
-  "name": "DataDownloaderSamplePipeline",
+  "name": "CopyActivity1",
   "properties": {
     "description": "Custom Data Downloader from an HTTP EndPoint Sample Pipeline",
     "activities": [
@@ -16,7 +16,6 @@
           "packageFile": "adfcontainer/package/MyCustomActivity.zip",
           "extendedProperties": {
             "sliceStart": "$$Text.Format('{0:yyyyMMddHHmm}', Time.AddHours(SliceStart, -1), SliceEnd)",
-            "sliceEnd": "$$Text.Format('{0:yyyy-MM-dd HH:mm:ss}', SliceEnd)",
             "urlFormat": "http://dumps.wikimedia.org/other/pagecounts-raw/{0}/{0}-{1}/pagecounts-{0}{1}{2}-{3}00{4}.gz",
             "dataStorageAccountName": "<Azure storage account name>",
             "dataStorageAccountKey": "<Azure storage account key>",
@@ -30,7 +29,7 @@
         ],
         "policy": {
           "executionPriorityOrder": "OldestFirst",
-          "timeout": "<config>",
+          "timeout": "00:10:00",
           "concurrency": 2,
           "retry": 2
         },

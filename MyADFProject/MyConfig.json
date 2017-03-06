@@ -8,6 +8,17 @@
     {
       "name": "$.properties.isPaused",
       "value": true
+    },
+    {
+      "name": "$.properties.activities[*].typeProperties.extendedProperties",
+      "value": {
+        "urlFormat": "http://dumps.wikimedia.org/other/pagecounts-raw/{0}/{0}-{1}/pagecounts-{0}{1}{2}-{3}00{4}.gz",
+        "dataStorageAccountName": "<Azure storage account name>",
+        "dataStorageAccountKey": "<Azure storage account key>",
+        "dataStorageContainer": "<Blob container name in Azure storage>",
+        "sliceStart": "$$Text.Format('{0:yyyyMM--ddHHmm}', Time.AddHours(SliceStart, -1), SliceEnd)",
+        "sliceEnd": "$$Text.Format('{0:yyyy-MM-dd HH:mm:ss}', SliceEnd)"
+      }
     }
   ],
   "AzureBatchLinkedService": [
@@ -32,6 +43,15 @@
     {
       "name": "$.properties.typeProperties.connectionString",
       "value": "ConnectionString to the BlobStore"
+    }
+  ],
+  "OutputTable": [
+    {
+      "name": "$.properties.availability",
+      "value": {
+        "frequency": "Hour",
+        "interval": 2
+      }
     }
   ]
 }

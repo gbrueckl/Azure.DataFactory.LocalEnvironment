@@ -38,6 +38,7 @@ namespace DataDownloaderActivityNS
             _dataStorageAccountName = dotNetActivity.ExtendedProperties["dataStorageAccountName"];
             _dataStorageAccountKey = dotNetActivity.ExtendedProperties["dataStorageAccountKey"];
             _dataStorageContainer = dotNetActivity.ExtendedProperties["dataStorageContainer"];
+            DateTime sliceEnd = DateTime.Parse(dotNetActivity.ExtendedProperties["sliceEnd"]);
             string sliceStartTime = dotNetActivity.ExtendedProperties["sliceStart"];
             string urlFormat = dotNetActivity.ExtendedProperties["urlFormat"];
 

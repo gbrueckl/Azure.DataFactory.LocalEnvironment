@@ -487,7 +487,8 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                 catch (UnauthorizedAccessException e) { }
             }
 
-            Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles[Pipelines[pipelineName].Name + ".json"], sliceStart, sliceEnd), "Pipeline");
+            // don not apply Configuration again for GetADFObjectFromJson as this would overwrite changes done by MapSlices!!!
+            Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles[Pipelines[pipelineName].Name + ".json"], sliceStart, sliceEnd), "Pipeline", false);
             Activity activityMeta = pipeline.GetActivityByName(activityName);
 
             // create a list of all Input- and Output-Datasets defined for the Activity
@@ -500,7 +501,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             for (int i = 0; i < activityDatasets.Count; i++)
             {
                 // MapSlices for the used Datasets
-                activityDatasets[i] = (Dataset)GetADFObjectFromJson(MapSlices(_armFiles[activityDatasets[i].Name + ".json"], sliceStart, sliceEnd), "Dataset");
+                activityDatasets[i] = (Dataset)GetADFObjectFromJson(MapSlices(_armFiles[activityDatasets[i].Name + ".json"], sliceStart, sliceEnd), "Dataset", false);
 
                 // currently, as of 2017-01-25, the same LinkedService might get added multiple times if it is referenced by multiple datasets
                 // this is the same behavior as if the activity was executed with ADF Service!!!
@@ -547,12 +548,13 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                 return _adfConfigurations[_configName];
             }
         }
-        private object GetADFObjectFromJson(JObject jsonObject, string objectType)
+        private object GetADFObjectFromJson(JObject jsonObject, string objectType, bool applyConfiguration)
         {
             Type dynClass;
             MethodInfo dynMethod;
 
-            ApplyConfiguration(ref jsonObject);
+            if(applyConfiguration)
+                ApplyConfiguration(ref jsonObject);
 
             dynClass = new Core.DataFactoryManagementClient().GetType();
             dynMethod = dynClass.GetMethod("DeserializeInternal" + objectType + "Json", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
@@ -565,6 +567,10 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             object ret = dynMethod.Invoke(classObject, new object[] { internalObject });
 
             return ret;
+        }
+        private object GetADFObjectFromJson(JObject jsonObject, string objectType)
+        {
+            return GetADFObjectFromJson(jsonObject, objectType, true);
         }
         private JObject GetARMResourceFromJson(JObject jsonObject, string resourceType, object resource)
         {
@@ -627,7 +633,14 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
 
                 for(int i = 0; i< matches.Count; i++)
                 {
-                    ((JValue)matches[i]).Value = ((JValue)result["value"]).Value;
+                    if (matches[i] is JValue)
+                    {
+                        ((JValue)matches[i]).Value = ((JValue)result["value"]).Value;
+                    }
+                    else if(matches[i] is JObject)
+                    {
+                        ((JProperty)(matches[i].Parent)).Value = result["value"].DeepClone();
+                    }
                 }
             }
         }
