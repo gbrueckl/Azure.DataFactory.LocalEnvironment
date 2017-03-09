@@ -10,6 +10,7 @@ In addition, the repository also contains various samples to demonstrate how to 
 - you are now able to debug multiple activties in the same run
 - temporary fix so no exception is thrown during clean-up of the temporary files after debugging
 - fix to overwrite all settings defined in the config-file (not just the ones with a value of "\<config\>")
+- config files now also support nested JSON as values to overwrite whole JSON subtrees 
 
 
 #Debug Custom .Net Activities
