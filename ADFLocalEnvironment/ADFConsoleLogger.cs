@@ -57,7 +57,7 @@ namespace gbrueckl.Azure.DataFactory
         }
         public void LogInformation(string textPattern, params object[] args)
         {
-            _logger.Write(textPattern, args);
+            _logger.Write(textPattern.TrimEnd() + Environment.NewLine, args);
         }
 
         public void LogError(object logMessage)

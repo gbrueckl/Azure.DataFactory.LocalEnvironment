@@ -47,7 +47,6 @@ namespace DataDownloaderActivityNS
             _logger.Write("This is just a simple CustomActivity which does nothing at the moment and is only here for testing!");
             //GatherDataForOneHour(sliceStartTime, urlFormat);
 
-            _logger.Write("Exit");
             return new Dictionary<string, string>();
         }
 

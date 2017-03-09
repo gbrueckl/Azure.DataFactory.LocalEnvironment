@@ -34,6 +34,7 @@ namespace gbrueckl.Azure.DataFactory
         Project _adfProject;
         string _projectName;
         string _configName;
+        string _buildPath;
         Dictionary<string, LinkedService> _adfLinkedServices;
         Dictionary<string, Dataset> _adfDataSets;
         Dictionary<string, Pipeline> _adfPipelines;
@@ -43,10 +44,11 @@ namespace gbrueckl.Azure.DataFactory
         Dictionary<string, JObject> _armFiles;
         #endregion
         #region Constructors
-        public ADFLocalEnvironment(string projectFilePath, string configName)
+        public ADFLocalEnvironment(string projectFilePath, string configName, string adfBuildPath)
         {
-            LoadProjectFile(projectFilePath, configName);
+            LoadProjectFile(projectFilePath, configName, adfBuildPath);
         }
+        public ADFLocalEnvironment(string projectFilePath, string configName) : this(projectFilePath, configName, null) { }
         public ADFLocalEnvironment(string projectFilePath) : this(projectFilePath, null) { }
         #endregion
         #region Public Properties
@@ -112,7 +114,7 @@ namespace gbrueckl.Azure.DataFactory
         }
         #endregion
         #region Public Functions
-        public void LoadProjectFile(string projectFilePath, string configName)
+        public void LoadProjectFile(string projectFilePath, string configName, string adfBuildPath)
         {
             _configName = configName;
 
@@ -128,10 +130,19 @@ namespace gbrueckl.Azure.DataFactory
 
             string schema;
             string adfType;
-            string buildPath = string.Join("\\", AppDomain.CurrentDomain.BaseDirectory.GetTokens('\\', 0, 3, true));
             LinkedService tempLinkedService;
             Dataset tempDataset;
             Pipeline tempPipeline;
+
+            if(string.IsNullOrEmpty(adfBuildPath))
+            {
+                _buildPath = string.Join("\\", AppDomain.CurrentDomain.BaseDirectory.GetTokens('\\', 0, 3, true));
+                Console.Write("No custom Build Path for the ADF project was specified, using the one from the executing Program: '{0}'", _buildPath);
+            }
+            else
+            {
+                _buildPath = adfBuildPath;
+            }
 
             for (int i = 0; i < 2; i++) // iterate twice, first to read config-files and second to read other files and apply the config directly
             {
@@ -198,22 +209,19 @@ namespace gbrueckl.Azure.DataFactory
                         {
                             if (projItem.EvaluatedInclude.ToLower().StartsWith("dependencies"))
                             {
-                                _adfDependencies.Add(string.Join("\\", projItem.EvaluatedInclude.GetTokens('\\', 1, -1, false)), new FileInfo(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude));
+                                //_adfDependencies.Add(string.Join("\\", projItem.EvaluatedInclude.GetTokens('\\', 1, -1, false)), new FileInfo(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude));
                                 // might also consider using the ZIP form the latest build here?
-                                //_adfDependencies.Add(string.Join("\\", projItem.EvaluatedInclude.GetTokens('\\', 1, -1, false)), new FileInfo(_adfProject.DirectoryPath + "\\" + buildPath + projItem.EvaluatedInclude));
+                                _adfDependencies.Add(string.Join("\\", projItem.EvaluatedInclude.GetTokens('\\', 1, -1, false)), new FileInfo(_adfProject.DirectoryPath + "\\" + _buildPath + projItem.EvaluatedInclude));
                             }
                         }
 
                         if (projItem.ItemType.ToLower() == "projectreference")
                         {
-                            Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine("A Project-Reference was found: {0} ! {1}The Code from the last build of the ADF project will be used ({2}). Make sure to rebuild the ADF project if it does not reflect your latest changes!", projItem.EvaluatedInclude, Environment.NewLine, buildPath);
-
-                            if (!Directory.Exists(_adfProject.DirectoryPath + "\\" + buildPath))
+                            // for project-references we need to ensure that the ADF Project was built already!
+                            if (!Directory.Exists(_adfProject.DirectoryPath + "\\" + _buildPath))
                             {
-                                throw new Exception(string.Format("The ADF project was not yet built into \"{0}\"! Make sure the Visual Studio Environments and OutputPaths are in Sync!", buildPath));
+                                throw new Exception(string.Format("The ADF project was not yet built into \"{0}\"! Make sure the Visual Studio Environments and OutputPaths are in Sync!", _buildPath));
                             }
-                            Console.ForegroundColor = ConsoleColor.Gray;
                         }
                     }
 
@@ -246,8 +254,11 @@ namespace gbrueckl.Azure.DataFactory
             {           
                 Console.WriteLine("'{0}' from path '{1}'", kvp.Key, kvp.Value.FullName);
             }
-            Console.WriteLine("Please make sure they all contain the latest build of your Custom Activities!");
             Console.ForegroundColor = ConsoleColor.Gray;
+        }
+        public void LoadProjectFile(string projectFilePath, string configName)
+        {
+            LoadProjectFile(projectFilePath, configName, null);
         }
         public void LoadProjectFile(string projectFilePath)
         {
@@ -485,7 +496,10 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
         #region Custom Activity Debugger
         public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd, IActivityLogger activityLogger)
         {
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Debugging Custom Activity '{0}' from Pipeline '{1}' ...", activityName, pipelineName);
+            Console.WriteLine("The Code from the last build of the ADF project will be used ({0}). Make sure to rebuild the ADF project if it does not reflect your latest changes!", _buildPath);
+
             Dictionary<string, string> ret = null;
             string dependencyPath = Path.Combine(Environment.CurrentDirectory, "CustomActivityDependencies_TEMP");
 
@@ -525,14 +539,16 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             DotNetActivity dotNetActivityMeta = (DotNetActivity)activityMeta.TypeProperties;
 
             Console.WriteLine("The Custom Activity refers to the following ZIP-file: '{0}'", dotNetActivityMeta.PackageFile);
-            Console.WriteLine("Make sure the ZIP-file is also listed in the Dependencies/References above!");
             FileInfo zipFile = _adfDependencies.Single(x => dotNetActivityMeta.PackageFile.EndsWith(x.Value.Name)).Value;
+            Console.WriteLine("Using '{0}' from ZIP-file '{1}'!", dotNetActivityMeta.AssemblyName, zipFile.FullName);
             UnzipFile(zipFile, dependencyPath);
 
             Assembly assembly = Assembly.LoadFrom(dependencyPath + "\\" + dotNetActivityMeta.AssemblyName);
             Type type = assembly.GetType(dotNetActivityMeta.EntryPoint);
             IDotNetActivity dotNetActivityExecute = Activator.CreateInstance(type) as IDotNetActivity;
-           
+
+            Console.WriteLine("Executing Function '{0}'...{1}--------------------------------------------------------------------------", dotNetActivityMeta.EntryPoint, Environment.NewLine);
+            Console.ForegroundColor = ConsoleColor.Gray;
 
             ret = (Dictionary<string, string>)dotNetActivityExecute.Execute(activityLinkedServices, activityDatasets, activityMeta, activityLogger);
 
