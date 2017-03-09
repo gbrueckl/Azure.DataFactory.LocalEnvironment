@@ -199,6 +199,8 @@ namespace gbrueckl.Azure.DataFactory
                             if (projItem.EvaluatedInclude.ToLower().StartsWith("dependencies"))
                             {
                                 _adfDependencies.Add(string.Join("\\", projItem.EvaluatedInclude.GetTokens('\\', 1, -1, false)), new FileInfo(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude));
+                                // might also consider using the ZIP form the latest build here?
+                                //_adfDependencies.Add(string.Join("\\", projItem.EvaluatedInclude.GetTokens('\\', 1, -1, false)), new FileInfo(_adfProject.DirectoryPath + "\\" + buildPath + projItem.EvaluatedInclude));
                             }
                         }
 
@@ -211,7 +213,7 @@ namespace gbrueckl.Azure.DataFactory
                             {
                                 throw new Exception(string.Format("The ADF project was not yet built into \"{0}\"! Make sure the Visual Studio Environments and OutputPaths are in Sync!", buildPath));
                             }
-                            Console.ForegroundColor = ConsoleColor.White;
+                            Console.ForegroundColor = ConsoleColor.Gray;
                         }
                     }
 
@@ -228,13 +230,24 @@ namespace gbrueckl.Azure.DataFactory
                                 {
                                     // Dependencies from the Dependencies folder (added in first loop) overrule Project-References!
                                     if (!_adfDependencies.ContainsKey(Path.GetFileName(file)))
+                                    {
+                                        //Console.WriteLine("Adding Reference: " + file + " ...");
                                         _adfDependencies.Add(Path.GetFileName(file), new FileInfo(file));
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine("The following Dependencies/References have been found: ");
+            foreach(KeyValuePair<string, FileInfo> kvp in _adfDependencies)
+            {           
+                Console.WriteLine("'{0}' from path '{1}'", kvp.Key, kvp.Value.FullName);
+            }
+            Console.WriteLine("Please make sure they all contain the latest build of your Custom Activities!");
+            Console.ForegroundColor = ConsoleColor.Gray;
         }
         public void LoadProjectFile(string projectFilePath)
         {
@@ -472,6 +485,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
         #region Custom Activity Debugger
         public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd, IActivityLogger activityLogger)
         {
+            Console.WriteLine("Debugging Custom Activity '{0}' from Pipeline '{1}' ...", activityName, pipelineName);
             Dictionary<string, string> ret = null;
             string dependencyPath = Path.Combine(Environment.CurrentDirectory, "CustomActivityDependencies_TEMP");
 
@@ -510,6 +524,8 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
 
             DotNetActivity dotNetActivityMeta = (DotNetActivity)activityMeta.TypeProperties;
 
+            Console.WriteLine("The Custom Activity refers to the following ZIP-file: '{0}'", dotNetActivityMeta.PackageFile);
+            Console.WriteLine("Make sure the ZIP-file is also listed in the Dependencies/References above!");
             FileInfo zipFile = _adfDependencies.Single(x => dotNetActivityMeta.PackageFile.EndsWith(x.Value.Name)).Value;
             UnzipFile(zipFile, dependencyPath);
 

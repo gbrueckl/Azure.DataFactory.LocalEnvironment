@@ -17,7 +17,7 @@ namespace UsageSample
                 "MyConfig"                                       // Name of the Config file to use
                 );
             #endregion
-            /*
+
             #region Sample: ARM Export
             // To Export to an ARM-Template:
             env.ExportARMTemplate(
@@ -31,7 +31,7 @@ namespace UsageSample
             string postDeploymentScript = env.GetARMPostDeploymentScript();
             Console.WriteLine(postDeploymentScript);
             #endregion
-    */
+
             #region Sample: Debug Custom Activity locally
             // To Execute and Debug a Custom Activity:
             env.ExecuteActivity(
