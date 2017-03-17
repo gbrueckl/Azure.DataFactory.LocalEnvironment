@@ -44,12 +44,18 @@ namespace gbrueckl.Azure.DataFactory
         Dictionary<string, JObject> _armFiles;
         #endregion
         #region Constructors
-        public ADFLocalEnvironment(string projectFilePath, string configName, string adfBuildPath)
+
+        /// <summary>
+        /// Creates a new instance of ADFLocalEnvironment which can be used to debug Custom Activities locally or to create an Azure Resource Manager template from an existing Azure Data Factory VS project.
+        /// </summary>
+        /// <param name="projectFilePath">Absolute or relative path to the project file of your Azure Data Factory project (.dfproj)</param>
+        /// <param name="configName">(Optional) Name of the config file to use when setting up the ADF Local Environment. (e.g. MyConfig.json)</param>
+        /// <param name="adfBuildPath">(Optional) If your ADF project references any custom assemblies, the code will be loaded from this location (e.g. \bin\debug). Note: you need to Build your ADF project in advance! Default is the path of the calling program!</param>
+        public ADFLocalEnvironment(string projectFilePath, string configName = null, string adfBuildPath = null)
         {
             LoadProjectFile(projectFilePath, configName, adfBuildPath);
         }
-        public ADFLocalEnvironment(string projectFilePath, string configName) : this(projectFilePath, configName, null) { }
-        public ADFLocalEnvironment(string projectFilePath) : this(projectFilePath, null) { }
+
         #endregion
         #region Public Properties
         public Dictionary<string, LinkedService> LinkedServices
@@ -114,9 +120,18 @@ namespace gbrueckl.Azure.DataFactory
         }
         #endregion
         #region Public Functions
-        public void LoadProjectFile(string projectFilePath, string configName, string adfBuildPath)
+        /// <summary>
+        /// Loads the settings from an ADF project into this ADFLocalEnvironment.
+        /// </summary>
+        /// <param name="projectFilePath">Absolute or relative path to the project file of your Azure Data Factory project (.dfproj)</param>
+        /// <param name="configName">(Optional) Name of the config file to use when setting up the ADF Local Environment. (e.g. MyConfig.json)</param>
+        /// <param name="adfBuildPath">(Optional) If your ADF project references any custom assemblies, the code will be loaded from this location (e.g. \bin\debug). Note: you need to Build your ADF project in advance! Default is the path of the calling program!</param>
+        public void LoadProjectFile(string projectFilePath, string configName = null, string adfBuildPath = null)
         {
-            _configName = configName;
+            if(!string.IsNullOrEmpty(configName))
+                _configName = configName.Replace(".json", "");
+            else
+                _configName = null;
 
             _adfLinkedServices = new Dictionary<string, LinkedService>();
             _adfDataSets = new Dictionary<string, Dataset>();
@@ -256,17 +271,16 @@ namespace gbrueckl.Azure.DataFactory
             }
             Console.ForegroundColor = ConsoleColor.Gray;
         }
-        public void LoadProjectFile(string projectFilePath, string configName)
-        {
-            LoadProjectFile(projectFilePath, configName, null);
-        }
-        public void LoadProjectFile(string projectFilePath)
-        {
-            LoadProjectFile(projectFilePath, null);
-        }
 
         #region ARM Export
-        public void ExportARMTemplate(string armProjectFilePath, string resourceLocation, bool overwriteParametersFile, bool pausePipelines)
+        /// <summary>
+        /// Export the current ADF local environment to an existing Azure Resource Manager project. It further incorporates the current configuration file (if specified) and handles the dependencies (need to adopt the PowerShell Script manually, see <seealso cref="GetARMPostDeploymentScript"/> for details)
+        /// </summary>
+        /// <param name="armProjectFilePath">Absolute or relative path to the project file of your Azure Resource Manager Template Deployment project (.deployproj)</param>
+        /// <param name="resourceLocation">(Optional) The location where the resources should be deployed to. Default is '[resourceGroup().location]' being the location of the resource group which the template is deployed to</param>
+        /// <param name="overwriteParametersFile">(Optional) Specifies whether the parameter (gets generated during first execution) should be overwritten. Default is 'false'.</param>
+        /// <param name="pausePipelines">(Optional) Set the "isPaused" property of all to 'true'. Default is 'false'.</param>
+        public void ExportARMTemplate(string armProjectFilePath, string resourceLocation = "[resourceGroup().location]", bool overwriteParametersFile = false, bool pausePipelines = false)
         {
             Project armProject = new Project(armProjectFilePath);
             string outputFilePath = armProject.DirectoryPath + "\\AzureDataFactory.json";
@@ -299,24 +313,22 @@ namespace gbrueckl.Azure.DataFactory
 
             CopyADFDependenciesToARM(armProject);
         }
-
-        public void ExportARMTemplate(string armProjectFilePath, string resourceLocation, bool overwriteParametersFile)
-        {
-            ExportARMTemplate(armProjectFilePath, resourceLocation, overwriteParametersFile, false);
-        }
-        public void ExportARMTemplate(string armProjectFilePath, string resourceLocation)
-        {
-            ExportARMTemplate(armProjectFilePath, resourceLocation, false, false);
-        }
-        public void ExportARMTemplate(string armProjectFilePath)
-        {
-            ExportARMTemplate(armProjectFilePath, "[resourceGroup().location]");
-        }
+        /// <summary>
+        /// Export the current ADF local environment to an existing Azure Resource Manager project. It further incorporates the current configuration file (if specified) and handles the dependencies (need to adopt the PowerShell Script manually!)
+        /// </summary>
+        /// <param name="armProjectFilePath">Absolute or relative path to the project file of your Azure Resource Manager Template Deployment project (.deployproj)</param>
+        /// <param name="overwriteParametersFile">(Optional) Specifies whether the parameter (gets generated during first execution) should be overwritten. Default is 'false'.</param>
         public void ExportARMTemplate(string armProjectFilePath, bool overwriteParametersFile)
         {
             ExportARMTemplate(armProjectFilePath, "[resourceGroup().location]", overwriteParametersFile, false);
         }
-        public JObject GetARMTemplate(string resourceLocation, bool pausePipelines)
+        /// <summary>
+        /// Returns the final ARM Template as an JObject. Can be used to further modify the JSON and write it manually.
+        /// </summary>
+        /// <param name="resourceLocation">(Optional) The location where the resources should be deployed to. Default is '[resourceGroup().location]' being the location of the resource group which the template is deployed to</param>
+        /// <param name="pausePipelines">(Optional) Set the "isPaused" property of all to 'true'. Default is 'false'.</param>
+        /// <returns>A JObject representing the final ARM template</returns>
+        public JObject GetARMTemplate(string resourceLocation = "[resourceGroup().location]", bool pausePipelines = false)
         {
             JObject ret = new JObject();
             JObject parameters = new JObject();
@@ -370,14 +382,6 @@ namespace gbrueckl.Azure.DataFactory
                 }
             }
             return ret;
-        }
-        public JObject GetARMTemplate(string resourceLocation)
-        {
-            return GetARMTemplate(resourceLocation, false);
-        }
-        public JObject GetARMTemplate()
-        {
-            return GetARMTemplate("[resourceGroup().location]");
         }
 
         private void CopyADFDependenciesToARM(Project armProject)
@@ -457,6 +461,10 @@ namespace gbrueckl.Azure.DataFactory
                 }
             }
         }
+        /// <summary>
+        /// Returns the PowerShell snippet which has to be used to upload ADF dependencies during the ARM Deployment.
+        /// </summary>
+        /// <returns>A PowerShell snippet</returns>
         public string GetARMPostDeploymentScript()
         {
             string ret = @"
@@ -494,6 +502,15 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
         }
         #endregion
         #region Custom Activity Debugger
+        /// <summary>
+        /// Starts an existing custom C# activity locally and enables local debugging. You need to set a breakpoint in your custom component's code.
+        /// </summary>
+        /// <param name="pipelineName">The name of the pipeline which contains the custom C# activity</param>
+        /// <param name="activityName">The name of the activity which you want to debug</param>
+        /// <param name="sliceStart">SliceStart which is used when the activity is executed</param>
+        /// <param name="sliceEnd">SliceStart which is used when the activity is executed</param>
+        /// <param name="activityLogger">Allows you to specify a custom Activity Logger to do your logging. Default is a Console Logger.</param>
+        /// <returns></returns>
         public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd, IActivityLogger activityLogger)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -564,6 +581,14 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
 
             return ret;
         }
+        /// <summary>
+        /// Starts an existing custom C# activity locally and enables local debugging. You need to set a breakpoint in your custom component's code. Uses a simple Console Logger for the outputs.
+        /// </summary>
+        /// <param name="pipelineName">The name of the pipeline which contains the custom C# activity</param>
+        /// <param name="activityName">The name of the activity which you want to debug</param>
+        /// <param name="sliceStart">SliceStart which is used when the activity is executed</param>
+        /// <param name="sliceEnd">SliceStart which is used when the activity is executed</param>
+        /// <returns></returns>
         public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd)
         {
             return ExecuteActivity(pipelineName, activityName, sliceStart, sliceEnd, new ADFConsoleLogger());
@@ -580,7 +605,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                 return _adfConfigurations[_configName];
             }
         }
-        private object GetADFObjectFromJson(JObject jsonObject, string objectType, bool applyConfiguration)
+        private object GetADFObjectFromJson(JObject jsonObject, string objectType, bool applyConfiguration = true)
         {
             Type dynClass;
             MethodInfo dynMethod;
@@ -599,10 +624,6 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             object ret = dynMethod.Invoke(classObject, new object[] { internalObject });
 
             return ret;
-        }
-        private object GetADFObjectFromJson(JObject jsonObject, string objectType)
-        {
-            return GetADFObjectFromJson(jsonObject, objectType, true);
         }
         private JObject GetARMResourceFromJson(JObject jsonObject, string resourceType, object resource)
         {
@@ -654,6 +675,9 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
         }
         private void ApplyConfiguration(ref JObject jsonObject)
         {
+            if (CurrentConfiguration == null)
+                return;
+
             List<JToken> matches;
             string objectName = jsonObject["name"].ToString();
 
