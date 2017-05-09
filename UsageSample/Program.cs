@@ -14,7 +14,7 @@ namespace UsageSample
             #region Setup ADF LocalEnvironment
             ADFLocalEnvironment env = new ADFLocalEnvironment(
                 @"..\..\..\MyADFProject\MyADFProject.dfproj",           // Path to the ADF Project file (absolute or relative)
-                "MyConfig"                                       // Name of the Config file to use
+                "MyConfig"                                              // Name of the ADF-Config file to use, optional
                 );
             #endregion
 
@@ -23,7 +23,7 @@ namespace UsageSample
             env.ExportARMTemplate(
                 @"..\..\..\MyARMTemplate\MyARMTemplate.deployproj",     // Path to the ARM Deployment Project file (absolute or relative)
                 "North Europe",                                         // (optional) Region for the deployment, default is the Region of the ResourceGroup
-                false,                                                  // (optional) can be used to avoid overwriting the Parameters file
+                false,                                                  // (optional) can be used to avoid overwriting the Parameters file which is created during the first export
                 true                                                    // (optional) deploy all Pipelines as with IsPaused=true
                 );
 

@@ -42,6 +42,7 @@ namespace gbrueckl.Azure.DataFactory
         Dictionary<string, FileInfo> _adfDependencies;
 
         Dictionary<string, JObject> _armFiles;
+        private string dependencyPath;
         #endregion
         #region Constructors
 
@@ -145,6 +146,8 @@ namespace gbrueckl.Azure.DataFactory
 
             string schema;
             string adfType;
+            string projReferenceName;
+            string dependencyPath;
             LinkedService tempLinkedService;
             Dataset tempDataset;
             Pipeline tempPipeline;
@@ -152,7 +155,7 @@ namespace gbrueckl.Azure.DataFactory
             if(string.IsNullOrEmpty(adfBuildPath))
             {
                 _buildPath = string.Join("\\", AppDomain.CurrentDomain.BaseDirectory.GetTokens('\\', 0, 3, true));
-                Console.Write("No custom Build Path for the ADF project was specified, using the one from the executing Program: '{0}'", _buildPath);
+                Console.WriteLine("No custom Build Path for the ADF project was specified, using the one from the executing Program: '{0}'", _buildPath);
             }
             else
             {
@@ -173,6 +176,8 @@ namespace gbrueckl.Azure.DataFactory
                                 reader.DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind;
                                 JObject jsonObj = (JObject)JToken.ReadFrom(reader);
 
+                                Console.WriteLine("Reading ProjectItem: " + projItem.EvaluatedInclude + " ...");
+
                                 if (jsonObj["$schema"] != null)
                                 {
                                     schema = jsonObj["$schema"].ToString().ToLower();
@@ -182,13 +187,11 @@ namespace gbrueckl.Azure.DataFactory
                                     {
                                         if (adfType == "microsoft.datafactory.config.json")
                                         {
-                                            Console.WriteLine("Reading Config: " + projItem.EvaluatedInclude + " ...");
                                             _adfConfigurations.Add(projItem.EvaluatedInclude.Replace(".json", ""), jsonObj);
                                         }
                                     }
                                     else
                                     {
-                                        Console.WriteLine("Reading Script: " + projItem.EvaluatedInclude + " ...");
                                         switch (adfType)
                                         {
                                             case "microsoft.datafactory.pipeline.json": // ADF Pipeline
@@ -209,10 +212,19 @@ namespace gbrueckl.Azure.DataFactory
                                             case "microsoft.datafactory.config.json":
                                                 break;
                                             default:
-                                                Console.WriteLine("{0} does not seem to belong to any know ADF Json-Schema and is ignored!", projItem.EvaluatedInclude);
+                                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                                Console.WriteLine("    {0} does not to belong to any know/valid ADF JSON-Schema and is ignored and the ADF Object will not be available!", projItem.EvaluatedInclude);
+                                                Console.ForegroundColor = ConsoleColor.Gray;
                                                 break;
                                         }
                                     }
+                                }
+                                else
+                                {
+                                    Console.ForegroundColor = ConsoleColor.Yellow;
+                                    Console.WriteLine("    {0} JSON Schema (\"$schema\"-tag) was not found! The ADF Object will not be available!", projItem.EvaluatedInclude);
+                                    Console.ForegroundColor = ConsoleColor.Gray;
+                                    break;
                                 }
                             }
                         }
@@ -237,6 +249,11 @@ namespace gbrueckl.Azure.DataFactory
                             {
                                 throw new Exception(string.Format("The ADF project was not yet built into \"{0}\"! Make sure the Visual Studio Environments and OutputPaths are in Sync!", _buildPath));
                             }
+                            projReferenceName = projItem.DirectMetadata.Single(x => x.Name == "Name").EvaluatedValue;
+                            if(!File.Exists(_adfProject.DirectoryPath + "\\" + _buildPath + "Dependencies\\" + projReferenceName + ".zip"))
+                            {
+                                throw new Exception(string.Format("The output of the ProjectReference {0} was not copied correctly to {1}Dependencies\\{0}.zip! Make sure the Visual Studio Environments and OutputPaths are in Sync!", projReferenceName, _buildPath));
+                            }
                         }
                     }
 
@@ -245,17 +262,20 @@ namespace gbrueckl.Azure.DataFactory
                     {
                         if (projItem.ItemType.ToLower() == "_outputpathitem")
                         {
-                            string path = _adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude + "Dependencies";
-                            foreach (string file in Directory.EnumerateFiles(path))
+                            dependencyPath = _adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude + "Dependencies";
+                            if (Directory.Exists(dependencyPath))
                             {
-                                // Find ZIP files in the ADF output Dependencies directory
-                                if (string.Equals(Path.GetExtension(file), ".zip", StringComparison.InvariantCultureIgnoreCase))
+                                foreach (string file in Directory.EnumerateFiles(dependencyPath))
                                 {
-                                    // Dependencies from the Dependencies folder (added in first loop) overrule Project-References!
-                                    if (!_adfDependencies.ContainsKey(Path.GetFileName(file)))
+                                    // Find ZIP files in the ADF output Dependencies directory
+                                    if (string.Equals(Path.GetExtension(file), ".zip", StringComparison.InvariantCultureIgnoreCase))
                                     {
-                                        //Console.WriteLine("Adding Reference: " + file + " ...");
-                                        _adfDependencies.Add(Path.GetFileName(file), new FileInfo(file));
+                                        // Dependencies from the Dependencies folder (added in first loop) overrule Project-References!
+                                        if (!_adfDependencies.ContainsKey(Path.GetFileName(file)))
+                                        {
+                                            //Console.WriteLine("Adding Reference: " + file + " ...");
+                                            _adfDependencies.Add(Path.GetFileName(file), new FileInfo(file));
+                                        }
                                     }
                                 }
                             }
