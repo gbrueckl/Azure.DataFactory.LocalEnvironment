@@ -42,7 +42,6 @@ namespace gbrueckl.Azure.DataFactory
         Dictionary<string, FileInfo> _adfDependencies;
 
         Dictionary<string, JObject> _armFiles;
-        private string dependencyPath;
         #endregion
         #region Constructors
 
