@@ -176,7 +176,8 @@ namespace gbrueckl.Azure.DataFactory
                                 reader.DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind;
                                 JObject jsonObj = (JObject)JToken.ReadFrom(reader);
 
-                                Console.WriteLine("Reading ProjectItem: " + projItem.EvaluatedInclude + " ...");
+                                if(i == 1)
+                                    Console.Write("Reading ProjectItem: " + projItem.EvaluatedInclude + " ...");
 
                                 if (jsonObj["$schema"] != null)
                                 {
@@ -187,6 +188,9 @@ namespace gbrueckl.Azure.DataFactory
                                     {
                                         if (adfType == "microsoft.datafactory.config.json")
                                         {
+                                            Console.ForegroundColor = ConsoleColor.Green;
+                                            Console.WriteLine("Found a Config-File: " + projItem.EvaluatedInclude + " !");
+                                            Console.ResetColor();
                                             _adfConfigurations.Add(projItem.EvaluatedInclude.Replace(".json", ""), jsonObj);
                                         }
                                     }
@@ -198,32 +202,38 @@ namespace gbrueckl.Azure.DataFactory
                                                 tempPipeline = (Pipeline)GetADFObjectFromJson(jsonObj, "Pipeline");
                                                 _adfPipelines.Add(tempPipeline.Name, tempPipeline);
                                                 _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datapipelines", tempPipeline));
+                                                Console.WriteLine(" (Pipeline)");
                                                 break;
                                             case "microsoft.datafactory.table.json": // ADF Table/Dataset
                                                 tempDataset = (Dataset)GetADFObjectFromJson(jsonObj, "Dataset");
                                                 _adfDataSets.Add(tempDataset.Name, tempDataset);
                                                 _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datasets", tempDataset));
+                                                Console.WriteLine(" (Table)");
                                                 break;
                                             case "microsoft.datafactory.linkedservice.json":
                                                 tempLinkedService = (LinkedService)GetADFObjectFromJson(jsonObj, "LinkedService");
                                                 _adfLinkedServices.Add(tempLinkedService.Name, tempLinkedService);
                                                 _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "linkedservices", tempLinkedService));
+                                                Console.WriteLine(" (LinkedService)");
                                                 break;
                                             case "microsoft.datafactory.config.json":
+                                                Console.WriteLine(" (Config)");
                                                 break;
                                             default:
                                                 Console.ForegroundColor = ConsoleColor.Yellow;
+                                                Console.WriteLine(" (NOT VALID)");
                                                 Console.WriteLine("    {0} does not to belong to any know/valid ADF JSON-Schema and is ignored and the ADF Object will not be available!", projItem.EvaluatedInclude);
-                                                Console.ForegroundColor = ConsoleColor.Gray;
+                                                Console.ResetColor();
                                                 break;
                                         }
                                     }
                                 }
                                 else
                                 {
+                                    Console.Write("Reading ProjectItem: " + projItem.EvaluatedInclude + " ...");
                                     Console.ForegroundColor = ConsoleColor.Yellow;
                                     Console.WriteLine("    {0} JSON Schema (\"$schema\"-tag) was not found! The ADF Object will not be available!", projItem.EvaluatedInclude);
-                                    Console.ForegroundColor = ConsoleColor.Gray;
+                                    Console.ResetColor();
                                     break;
                                 }
                             }
@@ -552,25 +562,29 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                 catch (UnauthorizedAccessException e) { }
             }
 
+            if(!Pipelines.ContainsKey(pipelineName))
+                throw new KeyNotFoundException(string.Format("A pipeline with the name \"{0}\" was not found. Please check the spelling and make sure it was loaded correctly in the ADF Local Environment and see the console output", pipelineName));
             // don not apply Configuration again for GetADFObjectFromJson as this would overwrite changes done by MapSlices!!!
             Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles[Pipelines[pipelineName].Name + ".json"], sliceStart, sliceEnd), "Pipeline", false);
+
             Activity activityMeta = pipeline.GetActivityByName(activityName);
 
             // create a list of all Input- and Output-Datasets defined for the Activity
             List<Dataset> activityInputDatasets = _adfDataSets.Values.Where(adfDS => activityMeta.Inputs.Any(ds => adfDS.Name == ds.Name)).ToList();
-            List<Dataset> activityDatasets = activityInputDatasets.Concat(_adfDataSets.Values.Where(adfDS => activityMeta.Outputs.Any(ds => adfDS.Name == ds.Name)).ToList()).ToList();
+            List<Dataset> activityOutputDatasets = _adfDataSets.Values.Where(adfDS => activityMeta.Outputs.Any(ds => adfDS.Name == ds.Name)).ToList();
+            List<Dataset> activityAllDatasets = activityInputDatasets.Concat(activityOutputDatasets).ToList();
 
             List<LinkedService> activityLinkedServices = new List<LinkedService>();
 
             // apply the Slice-Settings to all relevant objects (Datasets and Activity)
-            for (int i = 0; i < activityDatasets.Count; i++)
+            for (int i = 0; i < activityAllDatasets.Count; i++)
             {
                 // MapSlices for the used Datasets
-                activityDatasets[i] = (Dataset)GetADFObjectFromJson(MapSlices(_armFiles[activityDatasets[i].Name + ".json"], sliceStart, sliceEnd), "Dataset", false);
+                activityAllDatasets[i] = (Dataset)GetADFObjectFromJson(MapSlices(_armFiles[activityAllDatasets[i].Name + ".json"], sliceStart, sliceEnd), "Dataset", false);
 
                 // currently, as of 2017-01-25, the same LinkedService might get added multiple times if it is referenced by multiple datasets
                 // this is the same behavior as if the activity was executed with ADF Service!!!
-                activityLinkedServices.Add(_adfLinkedServices.Values.Single(x => x.Name == activityDatasets[i].Properties.LinkedServiceName));
+                activityLinkedServices.Add(_adfLinkedServices.Values.Single(x => x.Name == activityAllDatasets[i].Properties.LinkedServiceName));
             }
 
             DotNetActivity dotNetActivityMeta = (DotNetActivity)activityMeta.TypeProperties;
@@ -587,7 +601,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             Console.WriteLine("Executing Function '{0}'...{1}--------------------------------------------------------------------------", dotNetActivityMeta.EntryPoint, Environment.NewLine);
             Console.ForegroundColor = ConsoleColor.Gray;
 
-            ret = (Dictionary<string, string>)dotNetActivityExecute.Execute(activityLinkedServices, activityDatasets, activityMeta, activityLogger);
+            ret = (Dictionary<string, string>)dotNetActivityExecute.Execute(activityLinkedServices, activityAllDatasets, activityMeta, activityLogger);
 
             if (Directory.Exists(dependencyPath))
             {
@@ -823,7 +837,14 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
     {
         public static Activity GetActivityByName(this Pipeline pipeline, string activityName)
         {
-            return pipeline.Properties.Activities.Single(x => x.Name == activityName);
+            try
+            {
+                return pipeline.Properties.Activities.Single(x => x.Name == activityName);
+            }
+            catch(Exception e)
+            {
+                throw new KeyNotFoundException(string.Format("The activity \"{0}\" was not found in pipeline \"{1}\". Please check the spelling and make sure it was loaded correctly in the ADF Local Environment and see the console output", activityName, pipeline.Name), e);
+            }
         }
 
         public static JObject ReplaceInValues(this JObject jObject, string search, string replaceWith)
