@@ -229,11 +229,39 @@ namespace gbrueckl.Azure.DataFactory
                                 }
                                 else
                                 {
-                                    Console.Write("Reading ProjectItem: " + projItem.EvaluatedInclude + " ...");
-                                    Console.ForegroundColor = ConsoleColor.Yellow;
-                                    Console.WriteLine("    {0} JSON Schema (\"$schema\"-tag) was not found! The ADF Object will not be available!", projItem.EvaluatedInclude);
-                                    Console.ResetColor();
-                                    break;
+                                    if (i == 1)
+                                    {
+                                        Console.WriteLine("");
+                                        Console.ForegroundColor = ConsoleColor.Yellow;
+                                        Console.Write("    {0} JSON Schema (\"$schema\"-tag) was not found! Parsing the object manually ...", projItem.EvaluatedInclude);
+                                        Console.ResetColor();
+                                        try
+                                        {
+                                            // try if the file can be parsed as DataSet
+                                            tempDataset = (Dataset)GetADFObjectFromJson(jsonObj, "Dataset");
+                                            _adfDataSets.Add(tempDataset.Name, tempDataset);
+                                            _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datasets", tempDataset));
+                                            Console.WriteLine(" (Dataset)");
+                                        }
+                                        catch (Exception e)
+                                        {
+                                            try
+                                            {
+                                                // try if the file can be parsed as Pipeline
+                                                tempPipeline = (Pipeline)GetADFObjectFromJson(jsonObj, "Pipeline");
+                                                _adfPipelines.Add(tempPipeline.Name, tempPipeline);
+                                                _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datapipelines", tempPipeline));
+                                                Console.WriteLine(" (Pipeline)");
+                                            }
+                                            catch (Exception e1)
+                                            {
+                                                tempLinkedService = (LinkedService)GetADFObjectFromJson(jsonObj, "LinkedService");
+                                                _adfLinkedServices.Add(tempLinkedService.Name, tempLinkedService);
+                                                _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "linkedservices", tempLinkedService));
+                                                Console.WriteLine(" (LinkedService)");
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -660,7 +688,8 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
         }
         private JObject GetARMResourceFromJson(JObject jsonObject, string resourceType, object resource)
         {
-            jsonObject["$schema"].Parent.Remove(); // remove the schema
+            if(jsonObject["$schema"] != null)
+                jsonObject["$schema"].Parent.Remove(); // remove the schema
             jsonObject.Add("type", resourceType.ToLower());
             jsonObject.Add("apiVersion", ARM_API_VERSION);
 
