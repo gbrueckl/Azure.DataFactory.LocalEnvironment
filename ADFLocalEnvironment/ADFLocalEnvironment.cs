@@ -150,8 +150,9 @@ namespace gbrueckl.Azure.DataFactory
             LinkedService tempLinkedService;
             Dataset tempDataset;
             Pipeline tempPipeline;
+            JObject jsonObj = null;
 
-            if(string.IsNullOrEmpty(adfBuildPath))
+            if (string.IsNullOrEmpty(adfBuildPath))
             {
                 _buildPath = string.Join("\\", AppDomain.CurrentDomain.BaseDirectory.GetTokens('\\', 0, 3, true));
                 Console.WriteLine("No custom Build Path for the ADF project was specified, using the one from the executing Program: '{0}'", _buildPath);
@@ -173,7 +174,16 @@ namespace gbrueckl.Azure.DataFactory
                             {
                                 reader.DateParseHandling = DateParseHandling.None;
                                 reader.DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind;
-                                JObject jsonObj = (JObject)JToken.ReadFrom(reader);
+                                
+                                try
+                                {
+                                    // check if the file is a valid JSON file
+                                    jsonObj = (JObject)JToken.ReadFrom(reader);
+                                }
+                                catch(Exception eCast)
+                                {
+                                    throw new InvalidCastException("The file '" + projItem.EvaluatedInclude + "' could not be parsed as JSON file!", eCast);
+                                }
 
                                 if(i == 1)
                                     Console.Write("Reading ProjectItem: " + projItem.EvaluatedInclude + " ...");
@@ -592,7 +602,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             if(!Pipelines.ContainsKey(pipelineName))
                 throw new KeyNotFoundException(string.Format("A pipeline with the name \"{0}\" was not found. Please check the spelling and make sure it was loaded correctly in the ADF Local Environment and see the console output", pipelineName));
             // don not apply Configuration again for GetADFObjectFromJson as this would overwrite changes done by MapSlices!!!
-            Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles[Pipelines[pipelineName].Name + ".json"], sliceStart, sliceEnd), "Pipeline", false);
+            Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles.Single(x => x.Value["name"].ToString() == Pipelines[pipelineName].Name).Value, sliceStart, sliceEnd), "Pipeline", false);
 
             Activity activityMeta = pipeline.GetActivityByName(activityName);
 
