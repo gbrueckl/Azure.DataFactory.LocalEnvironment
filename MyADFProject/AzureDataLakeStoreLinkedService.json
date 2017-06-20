@@ -1,0 +1,15 @@
+﻿{
+  "$schema": "http://datafactories.schema.management.azure.com/schemas/2015-08-01/Microsoft.DataFactory.LinkedService.json",
+  "name": "AzureDataLakeStoreLinkedService",
+  "properties": {
+    "type": "AzureDataLakeStore",
+    "typeProperties": {
+      "dataLakeStoreUri": "https://<accountname>.azuredatalakestore.net/webhdfs/v1",
+      "servicePrincipalId": "<service principal id>",
+      "servicePrincipalKey": "<service principal key>",
+      "tenant": "<tenant info, e.g. microsoft.onmicrosoft.com>",
+      "subscriptionId": "<subscription of ADLS>",
+      "resourceGroupName": "<resource group of ADLS>"
+    }
+  }
+}

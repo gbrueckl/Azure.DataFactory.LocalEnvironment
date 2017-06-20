@@ -26,11 +26,14 @@
         "outputs": [
           {
             "name": "OutputTable"
+          },
+          {
+            "name": "AzureDataLakeStoreOutput"
           }
         ],
         "policy": {
           "executionPriorityOrder": "OldestFirst",
-          "timeout": "<config>",
+          "timeout": "01:00:00",
           "concurrency": 2,
           "retry": 2
         },

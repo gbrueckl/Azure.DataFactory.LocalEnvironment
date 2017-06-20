@@ -28,11 +28,12 @@
   </ItemGroup>
   <ItemGroup>
     <Script Include="AzureBatchLinkedService.json" />
+    <Script Include="AzureDataLakeStoreLinkedService.json" />
     <Script Include="AzureStorageLinkedService.json" />
     <Script Include="MyConfig.json" />
     <Script Include="OutputTable.json" />
     <Script Include="DataDownloaderSamplePipeline.json" />
-    <Script Include="MyPrivateConfig.json" />
+    <Script Include="AzureDataLakeStoreOutput.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MyCustomActivity\MyCustomActivity.csproj">

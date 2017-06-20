@@ -3,7 +3,7 @@
   "DataDownloaderSamplePipeline": [
     {
       "name": "$.properties.activities[*].policy.timeout",
-      "value": "00:30:00"
+      "value": "00:30:00" /* overwrite Timeout to 30 Minutes */
     },
     {
       "name": "$.properties.isPaused",

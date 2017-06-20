@@ -680,20 +680,28 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
         {
             Type dynClass;
             MethodInfo dynMethod;
+            object ret = null;
 
-            if(applyConfiguration)
+            if (applyConfiguration)
                 ApplyConfiguration(ref jsonObject);
 
-            dynClass = new Core.DataFactoryManagementClient().GetType();
-            dynMethod = dynClass.GetMethod("DeserializeInternal" + objectType + "Json", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
-            var internalObject = dynMethod.Invoke(this, new object[] { jsonObject.ToString() });
+            try
+            {
+                dynClass = new Core.DataFactoryManagementClient().GetType();
+                dynMethod = dynClass.GetMethod("DeserializeInternal" + objectType + "Json", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
+                var internalObject = dynMethod.Invoke(this, new object[] { jsonObject.ToString() });
 
-            dynClass = Type.GetType(dynClass.AssemblyQualifiedName.Replace("Core.DataFactoryManagementClient", "Conversion." + objectType + "Converter"));
-            ConstructorInfo constructor = dynClass.GetConstructor(Type.EmptyTypes);
-            object classObject = constructor.Invoke(new object[] { });
-            dynMethod = dynClass.GetMethod("ToWrapperType", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
-            object ret = dynMethod.Invoke(classObject, new object[] { internalObject });
-
+                dynClass = Type.GetType(dynClass.AssemblyQualifiedName.Replace("Core.DataFactoryManagementClient", "Conversion." + objectType + "Converter"));
+                ConstructorInfo constructor = dynClass.GetConstructor(Type.EmptyTypes);
+                object classObject = constructor.Invoke(new object[] { });
+                dynMethod = dynClass.GetMethod("ToWrapperType", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
+                ret = dynMethod.Invoke(classObject, new object[] { internalObject });
+            }
+            catch (TargetInvocationException tie)
+            {
+                throw tie.InnerException;
+            }
+            
             return ret;
         }
         private JObject GetARMResourceFromJson(JObject jsonObject, string resourceType, object resource)
