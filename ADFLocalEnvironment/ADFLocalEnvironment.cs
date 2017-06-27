@@ -249,6 +249,9 @@ namespace gbrueckl.Azure.DataFactory
                                         {
                                             // try if the file can be parsed as DataSet
                                             tempDataset = (Dataset)GetADFObjectFromJson(jsonObj, "Dataset");
+                                            if (tempDataset.Properties.Availability == null) // check if mandatory Availability-Property exists
+                                                throw new InvalidCastException("Not a valid ADF Dataset-Definition");
+
                                             _adfDataSets.Add(tempDataset.Name, tempDataset);
                                             _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datasets", tempDataset));
                                             Console.WriteLine(" (Dataset)");
@@ -259,6 +262,9 @@ namespace gbrueckl.Azure.DataFactory
                                             {
                                                 // try if the file can be parsed as Pipeline
                                                 tempPipeline = (Pipeline)GetADFObjectFromJson(jsonObj, "Pipeline");
+                                                if(tempPipeline.Properties.Description == null) // check if mandatory Description-Property exists
+                                                    throw new InvalidCastException("Not a valid ADF Pipeline-Definition", e);
+
                                                 _adfPipelines.Add(tempPipeline.Name, tempPipeline);
                                                 _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datapipelines", tempPipeline));
                                                 Console.WriteLine(" (Pipeline)");
@@ -266,6 +272,9 @@ namespace gbrueckl.Azure.DataFactory
                                             catch (Exception e1)
                                             {
                                                 tempLinkedService = (LinkedService)GetADFObjectFromJson(jsonObj, "LinkedService");
+                                                if(tempLinkedService.Name == null || tempLinkedService.Properties == null)
+                                                    throw new InvalidCastException("Not a valid ADF LinkedService-Definition", e1);
+
                                                 _adfLinkedServices.Add(tempLinkedService.Name, tempLinkedService);
                                                 _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "linkedservices", tempLinkedService));
                                                 Console.WriteLine(" (LinkedService)");
