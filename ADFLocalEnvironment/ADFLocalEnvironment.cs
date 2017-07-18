@@ -174,7 +174,7 @@ namespace gbrueckl.Azure.DataFactory
                             {
                                 reader.DateParseHandling = DateParseHandling.None;
                                 reader.DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind;
-                                
+
                                 try
                                 {
                                     // check if the file is a valid JSON file
@@ -305,10 +305,18 @@ namespace gbrueckl.Azure.DataFactory
                             {
                                 throw new Exception(string.Format("The ADF project was not yet built into \"{0}\"! Make sure the Visual Studio Environments and OutputPaths are in Sync!", _buildPath));
                             }
+
+                            // ensure that all zipped pipeline references are present
+                            // zip names must contain the names of custom pipelines (without the sufix CustomPipeline, if such is present)
+                            // e.g. if pipeline is named MyFirstCustomPipeline, the generated zip would have to contain the string "MyFirst" in its filename
+                            // valid names would be: TEST_MyFirstCustomPipeline.zip, DEV_MyFirst.zip, MyFirst_PROD.zip, MyFirst.zip, MyFirstCustomPipeline.zip, ...
                             projReferenceName = projItem.DirectMetadata.Single(x => x.Name == "Name").EvaluatedValue;
-                            if(!File.Exists(_adfProject.DirectoryPath + "\\" + _buildPath + "Dependencies\\" + projReferenceName + ".zip"))
+                            var baseProjRefLen = projReferenceName.ToLower().IndexOf("custompipeline");
+                            baseProjRefLen = baseProjRefLen == -1 ? projReferenceName.Length : baseProjRefLen;
+                            var baseProjReferenceName = projReferenceName.Substring(0, baseProjRefLen);
+                            if (!Directory.EnumerateFiles($"{_adfProject.DirectoryPath }\\{_buildPath}Dependencies\\", $"*{baseProjReferenceName}*zip").Any())
                             {
-                                throw new Exception(string.Format("The output of the ProjectReference {0} was not copied correctly to {1}Dependencies\\{0}.zip! Make sure the Visual Studio Environments and OutputPaths are in Sync!", projReferenceName, _buildPath));
+                                throw new Exception(string.Format("The output of the ProjectReference {0} was not copied correctly to {1}Dependencies! Make sure the Visual Studio Environments and OutputPaths are in Sync!", projReferenceName, _buildPath));
                             }
                         }
                     }
@@ -342,7 +350,7 @@ namespace gbrueckl.Azure.DataFactory
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine("The following Dependencies/References have been found: ");
             foreach(KeyValuePair<string, FileInfo> kvp in _adfDependencies)
-            {           
+            {
                 Console.WriteLine("'{0}' from path '{1}'", kvp.Key, kvp.Value.FullName);
             }
             Console.ForegroundColor = ConsoleColor.Gray;
@@ -710,7 +718,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             {
                 throw tie.InnerException;
             }
-            
+
             return ret;
         }
         private JObject GetARMResourceFromJson(JObject jsonObject, string resourceType, object resource)
