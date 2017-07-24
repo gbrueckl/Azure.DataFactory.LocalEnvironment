@@ -13,7 +13,7 @@ In addition, the repository also contains various samples to demonstrate how to 
 - config files now also support nested JSON as values to overwrite whole JSON subtrees 
 
 
-#Debug Custom .Net Activities
+# Debug Custom .Net Activities
 To set everything up, it is recommended to add a new Console Application project to your existing VS solution which already contains the code for the custom activity and also the ADF project itself. Other setups (e.g. with multiple solutions/projects) would also work but make it much harder to develop and debug your custom code.
 Once you have added your Console Application, you need to add a reference to the LocalEnvironment-Assembly. For convenience I also included the built DLL under [\ADFLocalEnvironment\Download\gbrueckl.Azure.DataFactory.ADFLocalEnvironment.dll](https://github.com/gbrueckl/Azure.DataFactory.LocalEnvironment/blob/master/ADFLocalEnvironment/Download/gbrueckl.Azure.DataFactory.ADFLocalEnvironment.dll) so you can download it directly if you are not interested in the source code itself. If you do so, make sure to also add the following NuGet-packages to your project:
 - Microsoft.Azure.Management.DataFactories
@@ -40,7 +40,7 @@ Now you can simply add breakpoints to your custom activity's code, execute the C
 
 
 
-#Export to ARM Template
+# Export to ARM Template
 A very common requirement when it comes to ADF deployment is to integrate it with regular ARM deployments. Unfortunatelly, at the time being, Microsoft does not offer a native way to convert an ADF project into a deployable ARM template. However, ADFLocalEnvironment class allows you to do exactly this. The first steps to setup everything are very similar to the steps described above but instead of calling the ExecuteActivity-function, we now call the ExportARMTemplate-function which supports the following parameters:
 - Path to an existing ARM Deployment project file (\*.deployproj)
 - An Azure region where the ADF should be deployed to (optional, default is the location of the ResourceGroup) 
