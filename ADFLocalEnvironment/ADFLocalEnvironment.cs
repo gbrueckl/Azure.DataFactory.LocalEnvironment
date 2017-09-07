@@ -721,7 +721,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             jsonObject.Add("apiVersion", ARM_API_VERSION);
 
             // need to escape square brackets in Values as they are a special place-holder in ADF
-            jsonObject = jsonObject.ReplaceInValues("[", "[[").ReplaceInValues("]", "]]");
+            // jsonObject = jsonObject.ReplaceInValues("[", "[[").ReplaceInValues("]", "]]");
 
             JArray dependsOn = new JArray();
             dependsOn.Add("[parameters('" + ARM_PROJECT_PARAMETER_NAME + "')]");
