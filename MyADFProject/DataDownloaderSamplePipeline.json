@@ -23,6 +23,11 @@
             "dataStorageContainer": "<Blob container name in Azure storage>"
           }
         },
+        "inputs": [
+          {
+            "name": "AzureSqlTableInput"
+          }
+        ],
         "outputs": [
           {
             "name": "OutputTable"

@@ -140,7 +140,8 @@ namespace gbrueckl.Azure.DataFactory
             _adfDependencies = new Dictionary<string, FileInfo>();
             _armFiles = new Dictionary<string, JObject>();
 
-            _adfProject = new Project(projectFilePath);
+            
+            _adfProject = new Project(projectFilePath, null, null, new ProjectCollection());
             _projectName = new FileInfo(_adfProject.FullPath).Name.Replace(".dfproj", "");
 
             string schema;
@@ -358,7 +359,7 @@ namespace gbrueckl.Azure.DataFactory
         /// <param name="pausePipelines">(Optional) Set the "isPaused" property of all to 'true'. Default is 'false'.</param>
         public void ExportARMTemplate(string armProjectFilePath, string resourceLocation = "[resourceGroup().location]", bool overwriteParametersFile = false, bool pausePipelines = false)
         {
-            Project armProject = new Project(armProjectFilePath);
+            Project armProject = new Project(armProjectFilePath, null, null, new ProjectCollection());
             string outputFilePath = armProject.DirectoryPath + "\\AzureDataFactory.json";
             JObject armTemplate = GetARMTemplate(resourceLocation, pausePipelines);
 
@@ -427,7 +428,12 @@ namespace gbrueckl.Azure.DataFactory
             dataFactory.Add("type", "Microsoft.DataFactory/datafactories");
             dataFactory.Add("location", resourceLocation);
 
-            JArray resources = new JArray(_armFiles.Values);
+            JArray resources = new JArray();
+            foreach(string key in _armFiles.Keys)
+            {
+                // need to escape square brackets in Values as they are a special place-holder in ADF
+                resources.Add(_armFiles[key].ReplaceInValues("[", "[[").ReplaceInValues("]", "]]"));
+            }
             dataFactory.Add("resources", resources);
 
             resources = new JArray();
@@ -719,9 +725,6 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                 jsonObject["$schema"].Parent.Remove(); // remove the schema
             jsonObject.Add("type", resourceType.ToLower());
             jsonObject.Add("apiVersion", ARM_API_VERSION);
-
-            // need to escape square brackets in Values as they are a special place-holder in ADF
-            jsonObject = jsonObject.ReplaceInValues("[", "[[").ReplaceInValues("]", "]]");
 
             JArray dependsOn = new JArray();
             dependsOn.Add("[parameters('" + ARM_PROJECT_PARAMETER_NAME + "')]");
