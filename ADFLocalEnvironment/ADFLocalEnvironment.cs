@@ -48,12 +48,12 @@ namespace gbrueckl.Azure.DataFactory
         /// <summary>
         /// Creates a new instance of ADFLocalEnvironment which can be used to debug Custom Activities locally or to create an Azure Resource Manager template from an existing Azure Data Factory VS project.
         /// </summary>
-        /// <param name="projectFilePath">Absolute or relative path to the project file of your Azure Data Factory project (.dfproj)</param>
+        /// <param name="projectFilePath">Absolute or relative path to the project file of your Azure Data Factory project (.dfproj). Relative paths start at the TargetOutputDirectory of the current project, e.g. ./bin/debug !</param>
         /// <param name="configName">(Optional) Name of the config file to use when setting up the ADF Local Environment. (e.g. MyConfig.json)</param>
-        /// <param name="adfBuildPath">(Optional) If your ADF project references any custom assemblies, the code will be loaded from this location (e.g. \bin\debug). Note: you need to Build your ADF project in advance! Default is the path of the calling program!</param>
-        public ADFLocalEnvironment(string projectFilePath, string configName = null, string adfBuildPath = null)
+        /// <param name="customActivitiesPath">(Optional) If your ADF project references any custom activities (.zip-files) which are located outside of the ADF /Dependencies/-folder, this folder can be specified here. This can be useful e.g. for debugging purposes where the .zip-file was not copied to ADF yet. This does not overwrite Project References. Relative paths start at the ADF Project-folder!</param>
+        public ADFLocalEnvironment(string projectFilePath, string configName = null, string customActivitiesPath = null)
         {
-            LoadProjectFile(projectFilePath, configName, adfBuildPath);
+            LoadProjectFile(projectFilePath, configName, customActivitiesPath);
         }
 
         #endregion
@@ -125,8 +125,8 @@ namespace gbrueckl.Azure.DataFactory
         /// </summary>
         /// <param name="projectFilePath">Absolute or relative path to the project file of your Azure Data Factory project (.dfproj)</param>
         /// <param name="configName">(Optional) Name of the config file to use when setting up the ADF Local Environment. (e.g. MyConfig.json)</param>
-        /// <param name="adfBuildPath">(Optional) If your ADF project references any custom assemblies, the code will be loaded from this location (e.g. \bin\debug). Note: you need to Build your ADF project in advance! Default is the path of the calling program!</param>
-        public void LoadProjectFile(string projectFilePath, string configName = null, string adfBuildPath = null)
+        /// <param name="customActivitiesPath">(Optional) If your ADF project references any custom assemblies, the code will be loaded from this location (e.g. \bin\debug). Note: you need to Build your ADF project in advance! Default is the path of the calling program!</param>
+        public void LoadProjectFile(string projectFilePath, string configName = null, string customActivitiesPath = null)
         {
             if(!string.IsNullOrEmpty(configName))
                 _configName = configName.Replace(".json", "");
@@ -148,19 +148,24 @@ namespace gbrueckl.Azure.DataFactory
             string adfType;
             string projReferenceName;
             string dependencyPath;
+            string dependencyName;
+            string debuggerBuildPath;
+            FileInfo dependencyFile;
             LinkedService tempLinkedService;
             Dataset tempDataset;
             Pipeline tempPipeline;
             JObject jsonObj = null;
+            JObject _armFileTemp;
 
-            if (string.IsNullOrEmpty(adfBuildPath))
+            if (customActivitiesPath == null)
             {
-                _buildPath = string.Join("\\", AppDomain.CurrentDomain.BaseDirectory.GetTokens('\\', 0, 3, true));
+                _buildPath = Path.Combine(_adfProject.DirectoryPath, "Dependencies");
+                //_buildPath = string.Join("\\", AppDomain.CurrentDomain.BaseDirectory.GetTokens('\\', 0, 3, true));
                 Console.WriteLine("No custom Build Path for the ADF project was specified, using the one from the executing Program: '{0}'", _buildPath);
             }
             else
             {
-                _buildPath = adfBuildPath;
+                _buildPath = customActivitiesPath;
             }
 
             for (int i = 0; i < 2; i++) // iterate twice, first to read config-files and second to read other files and apply the config directly
@@ -169,7 +174,7 @@ namespace gbrueckl.Azure.DataFactory
                 {
                     if (projItem.ItemType.ToLower() == "script")
                     {
-                        using (StreamReader file = File.OpenText(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude))
+                        using (StreamReader file = File.OpenText(Path.Combine(_adfProject.DirectoryPath, projItem.EvaluatedInclude)))
                         {
                             using (JsonTextReader reader = new JsonTextReader(file))
                             {
@@ -211,19 +216,19 @@ namespace gbrueckl.Azure.DataFactory
                                             case "microsoft.datafactory.pipeline.json": // ADF Pipeline
                                                 tempPipeline = (Pipeline)GetADFObjectFromJson(jsonObj, "Pipeline");
                                                 _adfPipelines.Add(tempPipeline.Name, tempPipeline);
-                                                _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datapipelines", tempPipeline));
+                                                _armFiles.Add(tempPipeline.Name, GetARMResourceFromJson(jsonObj, "datapipelines", tempPipeline));
                                                 Console.WriteLine(" (Pipeline)");
                                                 break;
                                             case "microsoft.datafactory.table.json": // ADF Table/Dataset
                                                 tempDataset = (Dataset)GetADFObjectFromJson(jsonObj, "Dataset");
                                                 _adfDataSets.Add(tempDataset.Name, tempDataset);
-                                                _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datasets", tempDataset));
+                                                _armFiles.Add(tempDataset.Name, GetARMResourceFromJson(jsonObj, "datasets", tempDataset));
                                                 Console.WriteLine(" (Table)");
                                                 break;
                                             case "microsoft.datafactory.linkedservice.json":
                                                 tempLinkedService = (LinkedService)GetADFObjectFromJson(jsonObj, "LinkedService");
                                                 _adfLinkedServices.Add(tempLinkedService.Name, tempLinkedService);
-                                                _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "linkedservices", tempLinkedService));
+                                                _armFiles.Add(tempLinkedService.Name, GetARMResourceFromJson(jsonObj, "linkedservices", tempLinkedService));
                                                 Console.WriteLine(" (LinkedService)");
                                                 break;
                                             case "microsoft.datafactory.config.json":
@@ -254,7 +259,7 @@ namespace gbrueckl.Azure.DataFactory
                                                 throw new InvalidCastException("Not a valid ADF Dataset-Definition");
 
                                             _adfDataSets.Add(tempDataset.Name, tempDataset);
-                                            _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datasets", tempDataset));
+                                            _armFiles.Add(tempDataset.Name, GetARMResourceFromJson(jsonObj, "datasets", tempDataset));
                                             Console.WriteLine(" (Dataset)");
                                         }
                                         catch (Exception e)
@@ -267,7 +272,7 @@ namespace gbrueckl.Azure.DataFactory
                                                     throw new InvalidCastException("Not a valid ADF Pipeline-Definition", e);
 
                                                 _adfPipelines.Add(tempPipeline.Name, tempPipeline);
-                                                _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "datapipelines", tempPipeline));
+                                                _armFiles.Add(tempPipeline.Name, GetARMResourceFromJson(jsonObj, "datapipelines", tempPipeline));
                                                 Console.WriteLine(" (Pipeline)");
                                             }
                                             catch (Exception e1)
@@ -277,7 +282,7 @@ namespace gbrueckl.Azure.DataFactory
                                                     throw new InvalidCastException("Not a valid ADF LinkedService-Definition", e1);
 
                                                 _adfLinkedServices.Add(tempLinkedService.Name, tempLinkedService);
-                                                _armFiles.Add(projItem.EvaluatedInclude, GetARMResourceFromJson(jsonObj, "linkedservices", tempLinkedService));
+                                                _armFiles.Add(tempLinkedService.Name, GetARMResourceFromJson(jsonObj, "linkedservices", tempLinkedService));
                                                 Console.WriteLine(" (LinkedService)");
                                             }
                                         }
@@ -286,30 +291,51 @@ namespace gbrueckl.Azure.DataFactory
                             }
                         }
                     }
-                    // we iterate twice, in the FIRST loop we add the dependencies from the Dependencies-Folder
+                    // we iterate twice, in the FIRST loop we add the dependencies from the Dependencies-Folder (external Dependencies without any direkt link to ADF)
                     if (i == 0)
                     {
                         if (projItem.ItemType.ToLower() == "content")
                         {
                             if (projItem.EvaluatedInclude.ToLower().StartsWith("dependencies"))
                             {
+                                dependencyName = string.Join("\\", projItem.EvaluatedInclude.GetTokens('\\', 1, -1, false));
                                 //_adfDependencies.Add(string.Join("\\", projItem.EvaluatedInclude.GetTokens('\\', 1, -1, false)), new FileInfo(_adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude));
                                 // might also consider using the ZIP form the latest build here?
-                                _adfDependencies.Add(string.Join("\\", projItem.EvaluatedInclude.GetTokens('\\', 1, -1, false)), new FileInfo(_adfProject.DirectoryPath + "\\" + _buildPath + projItem.EvaluatedInclude));
+
+                                if (_buildPath.StartsWith("."))
+                                    dependencyFile = new FileInfo(Path.Combine(_adfProject.DirectoryPath, _buildPath, dependencyName));
+                                else
+                                    dependencyFile = new FileInfo(Path.Combine(_buildPath, dependencyName));
+
+                                if (!dependencyFile.Exists)
+                                    if (customActivitiesPath != null)
+                                    {
+                                        Console.ForegroundColor = ConsoleColor.Yellow;
+                                        Console.Write("The ADF Dependency \"{0}\" could not be found at {1}. However, a Custom Activities Path was supplied which may target only a single Reference!", dependencyName, dependencyFile.FullName);
+                                        Console.ResetColor();
+                                    }
+                                    else
+                                        throw new FileNotFoundException(string.Format("The ADF Dependency \"{0}\" could not be found at {1}!", dependencyName, dependencyFile.FullName), dependencyFile.FullName);
+
+                                _adfDependencies.Add(dependencyName, dependencyFile);
                             }
                         }
 
                         if (projItem.ItemType.ToLower() == "projectreference")
                         {
-                            // for project-references we need to ensure that the ADF Project was built already!
-                            if (!Directory.Exists(_adfProject.DirectoryPath + "\\" + _buildPath))
+                            // Project-References are zipped into /Dependencies/<ReferenceName>.zip and then copied to the outputDirectory of the ADF project (e.g. /bin/debug/) 
+                            // Check if the ADF project was built already
+
+                            debuggerBuildPath = string.Join("\\", AppDomain.CurrentDomain.BaseDirectory.GetTokens('\\', 0, 3, true));
+
+                            if (!Directory.Exists(Path.Combine(_adfProject.DirectoryPath, debuggerBuildPath)))
                             {
-                                throw new Exception(string.Format("The ADF project was not yet built into \"{0}\"! Make sure the Visual Studio Environments and OutputPaths are in Sync!", _buildPath));
+                                throw new Exception(string.Format("The ADF project was not yet built into \"{0}\"! Make sure the OutputPaths of the ADF-Project and this Debugger-Project are in Sync!", debuggerBuildPath));
                             }
                             projReferenceName = projItem.DirectMetadata.Single(x => x.Name == "Name").EvaluatedValue;
-                            if(!File.Exists(_adfProject.DirectoryPath + "\\" + _buildPath + "Dependencies\\" + projReferenceName + ".zip"))
+                            if(!File.Exists(Path.Combine(_adfProject.DirectoryPath, debuggerBuildPath, "Dependencies", projReferenceName + ".zip")))
                             {
-                                throw new Exception(string.Format("The output of the ProjectReference {0} was not copied correctly to {1}Dependencies\\{0}.zip! Make sure the Visual Studio Environments and OutputPaths are in Sync!", projReferenceName, _buildPath));
+                                throw new Exception(string.Format("The output of the ProjectReference \"{0}\" was not found at {1}Dependencies\\{0}.zip! Make sure the ADF project was built in advance and the referenced Custom activity was copied correctly!", projReferenceName, Path.Combine(_adfProject.DirectoryPath, debuggerBuildPath)));
                             }
                         }
                     }
@@ -319,7 +345,7 @@ namespace gbrueckl.Azure.DataFactory
                     {
                         if (projItem.ItemType.ToLower() == "_outputpathitem")
                         {
-                            dependencyPath = _adfProject.DirectoryPath + "\\" + projItem.EvaluatedInclude + "Dependencies";
+                            dependencyPath = Path.Combine(_adfProject.DirectoryPath, projItem.EvaluatedInclude, "Dependencies");
                             if (Directory.Exists(dependencyPath))
                             {
                                 foreach (string file in Directory.EnumerateFiles(dependencyPath))
@@ -360,7 +386,7 @@ namespace gbrueckl.Azure.DataFactory
         public void ExportARMTemplate(string armProjectFilePath, string resourceLocation = "[resourceGroup().location]", bool overwriteParametersFile = false, bool pausePipelines = false)
         {
             Project armProject = new Project(armProjectFilePath, null, null, new ProjectCollection());
-            string outputFilePath = armProject.DirectoryPath + "\\AzureDataFactory.json";
+            string outputFilePath = Path.Combine(armProject.DirectoryPath, "AzureDataFactory.json");
             JObject armTemplate = GetARMTemplate(resourceLocation, pausePipelines);
 
             // serialize JSON to our ARM file
@@ -502,7 +528,7 @@ namespace gbrueckl.Azure.DataFactory
                 }
             }
 
-            DirectoryInfo d = new DirectoryInfo(armProject.DirectoryPath + "\\" + ARM_DEPENDENCY_FOLDER_NAME);
+            DirectoryInfo d = new DirectoryInfo(Path.Combine(armProject.DirectoryPath, ARM_DEPENDENCY_FOLDER_NAME));
             // delete any old/existing dependencies in ARM output folder
             if (d.Exists)
             {
@@ -617,7 +643,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             if(!Pipelines.ContainsKey(pipelineName))
                 throw new KeyNotFoundException(string.Format("A pipeline with the name \"{0}\" was not found. Please check the spelling and make sure it was loaded correctly in the ADF Local Environment and see the console output", pipelineName));
             // don not apply Configuration again for GetADFObjectFromJson as this would overwrite changes done by MapSlices!!!
-            Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles.Single(x => x.Value["name"].ToString() == Pipelines[pipelineName].Name).Value, sliceStart, sliceEnd), "Pipeline", false);
+            Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles[Pipelines[pipelineName].Name], sliceStart, sliceEnd), "Pipeline", false);
 
             Activity activityMeta = pipeline.GetActivityByName(activityName);
 
@@ -632,7 +658,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             for (int i = 0; i < activityAllDatasets.Count; i++)
             {
                 // MapSlices for the used Datasets
-                activityAllDatasets[i] = (Dataset)GetADFObjectFromJson(MapSlices(_armFiles[activityAllDatasets[i].Name + ".json"], sliceStart, sliceEnd), "Dataset", false);
+                activityAllDatasets[i] = (Dataset)GetADFObjectFromJson(MapSlices(_armFiles[activityAllDatasets[i].Name], sliceStart, sliceEnd), "Dataset", false);
 
                 // currently, as of 2017-01-25, the same LinkedService might get added multiple times if it is referenced by multiple datasets
                 // this is the same behavior as if the activity was executed with ADF Service!!!
@@ -646,7 +672,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             Console.WriteLine("Using '{0}' from ZIP-file '{1}'!", dotNetActivityMeta.AssemblyName, zipFile.FullName);
             UnzipFile(zipFile, dependencyPath);
 
-            Assembly assembly = Assembly.LoadFrom(dependencyPath + "\\" + dotNetActivityMeta.AssemblyName);
+            Assembly assembly = Assembly.LoadFrom(Path.Combine(dependencyPath, dotNetActivityMeta.AssemblyName));
             Type type = assembly.GetType(dotNetActivityMeta.EntryPoint);
             IDotNetActivity dotNetActivityExecute = Activator.CreateInstance(type) as IDotNetActivity;
 
