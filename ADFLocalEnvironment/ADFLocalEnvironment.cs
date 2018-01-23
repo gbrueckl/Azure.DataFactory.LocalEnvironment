@@ -325,8 +325,7 @@ namespace gbrueckl.Azure.DataFactory
                         {
                             // Project-References are zipped into /Dependencies/<ReferenceName>.zip and then copied to the outputDirectory of the ADF project (e.g. /bin/debug/) 
                             // Check if the ADF project was built already
-
-                            debuggerBuildPath = string.Join("\\", AppDomain.CurrentDomain.BaseDirectory.GetTokens('\\', 0, 3, true));
+                            debuggerBuildPath = string.Join("\\", AppDomain.CurrentDomain.BaseDirectory.GetTokens('\\', 0, AppDomain.CurrentDomain.BaseDirectory.EndsWith("\\") ? 3 : 2, true));
 
                             if (!Directory.Exists(Path.Combine(_adfProject.DirectoryPath, debuggerBuildPath)))
                             {
