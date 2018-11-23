@@ -16,7 +16,7 @@ In addition, the repository also contains various samples to demonstrate how to 
 - config files now also support nested JSON as values to overwrite whole JSON subtrees 
 
 # Setup
-The package can now be downloaded from the NuGet gallery: https://www.nuget.org/packages/gbrueckl.Azure.DataFactory.LocalEnvironment/0.9.0
+The package can now be downloaded from the NuGet gallery: https://www.nuget.org/packages/gbrueckl.Azure.DataFactory.LocalEnvironment
 If you install it from within Visual Studio, simply search for "gbrueckl":
 
 ![Alt text](http://files.gbrueckl.at/github/Azure.DataFactory.LocalEnvironment/ADF_LocalEnvironment_Add_NuGet_Package_VS.png "Manage Nuget packages of project")
