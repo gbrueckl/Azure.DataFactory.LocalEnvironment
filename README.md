@@ -5,6 +5,9 @@ This repository provides some tools which make it easier to work with Azure Data
 
 In addition, the repository also contains various samples to demonstrate how to work with the ADF Local Environment.
 
+## Update 2018-11-23:
+- published as NuGet-package: https://www.nuget.org/packages/gbrueckl.Azure.DataFactory.LocalEnvironment
+
 ## Update 2017-03-02:
 - added support for some of the built-in ADF Date/Time functions
 - you are now able to debug multiple activties in the same run
@@ -12,22 +15,26 @@ In addition, the repository also contains various samples to demonstrate how to 
 - fix to overwrite all settings defined in the config-file (not just the ones with a value of "\<config\>")
 - config files now also support nested JSON as values to overwrite whole JSON subtrees 
 
+# Setup
+The package can now be downloaded from the NuGet gallery: https://www.nuget.org/packages/gbrueckl.Azure.DataFactory.LocalEnvironment/0.9.0
+If you install it from within Visual Studio, simply search for "gbrueckl":
+
+![Alt text](http://files.gbrueckl.at/github/Azure.DataFactory.LocalEnvironment/ADF_LocalEnvironment_Add_NuGet_Package_VS.png "Manage Nuget packages of project")
+![Alt text](http://files.gbrueckl.at/github/Azure.DataFactory.LocalEnvironment/ADF_LocalEnvironment_Add_NuGet_Package_VS_Explorer.png "Search for NuGet package in package explorer searching for 'gbrueckl'")
+
+Alternatively you can also use the NuGet package manager console and run
+```powershell
+Install-Package gbrueckl.Azure.DataFactory.LocalEnvironment
+```
+![Alt text](http://files.gbrueckl.at/github/Azure.DataFactory.LocalEnvironment/ADF_LocalEnvironment_Add_NuGet_Package_VS_Console.png "Install the NuGet package via the package manager console")
+
+Further details can also be found here https://docs.microsoft.com/en-us/nuget/consume-packages/ways-to-install-a-package
 
 # Debug Custom .Net Activities
 To set everything up, it is recommended to add a new Console Application project to your existing VS solution which already contains the code for the custom activity and also the ADF project itself. Other setups (e.g. with multiple solutions/projects) would also work but make it much harder to develop and debug your custom code.
-Once you have added your Console Application, you need to add a reference to the LocalEnvironment-Assembly. For convenience I also included the built DLL under [\ADFLocalEnvironment\Download\gbrueckl.Azure.DataFactory.ADFLocalEnvironment.dll](https://github.com/gbrueckl/Azure.DataFactory.LocalEnvironment/blob/master/ADFLocalEnvironment/Download/gbrueckl.Azure.DataFactory.ADFLocalEnvironment.dll) so you can download it directly if you are not interested in the source code itself. If you do so, make sure to also add the following NuGet-packages to your project:
-- Microsoft.Azure.Management.DataFactories
-- SharpZipLib
-- Newtonsoft.Json
+Once you have added your Console Application, you need to add the NuGet package "gbrueckl.Azure.DataFactory.LocalEnvironment" - see [Setup] above.
 
-![Alt text](http://files.gbrueckl.at/github/Azure.DataFactory.LocalEnvironment/ADF_LocalEnvironment_HowTo_AddReference.png "Add Reference to Project")
-![Alt text](http://files.gbrueckl.at/github/Azure.DataFactory.LocalEnvironment/ADF_LocalEnvironment_HowTo_AddReference_2.png "Select DLL to be added")
-To install the required NuGet-packages from above please also run these commands in the NuGet-PackageManager console:
-- Install-Package Microsoft.Azure.Management.DataFactories
-- Install-Package SharpZipLib
-- Install-Package Newtonsoft.Json
-
-Next step is to add the namespace of the ADFLocalEnvironment to your code so you can start start using the ADFLocalEnvironment class. Using an existing ADF Project Visual Studio File (\*.dfproj) and an optional name for an ADF Configuration to use you can create a new intance of the ADFLocalEnvironment. Then you can simply call ExecuteActivity-function and pass in the mandatory parameters:
+Next step is to add the namespace of the ADFLocalEnvironment to your code so you can start start using the ADFLocalEnvironment class. Using an existing ADF Project Visual Studio File (\*.dfproj) and an optional name for an ADF Configuration to use you can create a new intance of the ADFLocalEnvironment. The configuration file also has to be part of the ADF project referenced in the first parameter! Then you can simply call ExecuteActivity-function and pass in the mandatory parameters:
 - Name of the Pipeline
 - Name of the Activity 
 - SliceStart
