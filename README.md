@@ -6,7 +6,7 @@ This repository provides some tools which make it easier to work with Azure Data
 In addition, the repository also contains various samples to demonstrate how to work with the ADF Local Environment.
 
 ## Update 2018-11-23:
-- published as NuGet-package: https://www.nuget.org/packages/gbrueckl.Azure.DataFactory.LocalEnvironment/0.9.0
+- published as NuGet-package: https://www.nuget.org/packages/gbrueckl.Azure.DataFactory.LocalEnvironment
 
 ## Update 2017-03-02:
 - added support for some of the built-in ADF Date/Time functions
