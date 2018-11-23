@@ -17,6 +17,7 @@ In addition, the repository also contains various samples to demonstrate how to 
 
 # Setup
 The package can now be downloaded from the NuGet gallery: https://www.nuget.org/packages/gbrueckl.Azure.DataFactory.LocalEnvironment
+
 If you install it from within Visual Studio, simply search for "gbrueckl":
 
 ![Alt text](http://files.gbrueckl.at/github/Azure.DataFactory.LocalEnvironment/ADF_LocalEnvironment_Add_NuGet_Package_VS.png "Manage Nuget packages of project")
@@ -28,7 +29,8 @@ Install-Package gbrueckl.Azure.DataFactory.LocalEnvironment
 ```
 ![Alt text](http://files.gbrueckl.at/github/Azure.DataFactory.LocalEnvironment/ADF_LocalEnvironment_Add_NuGet_Package_VS_Console.png "Install the NuGet package via the package manager console")
 
-Further details can also be found here https://docs.microsoft.com/en-us/nuget/consume-packages/ways-to-install-a-package
+Further details can also be found here:
+https://docs.microsoft.com/en-us/nuget/consume-packages/ways-to-install-a-package
 
 # Debug Custom .Net Activities
 To set everything up, it is recommended to add a new Console Application project to your existing VS solution which already contains the code for the custom activity and also the ADF project itself. Other setups (e.g. with multiple solutions/projects) would also work but make it much harder to develop and debug your custom code.
