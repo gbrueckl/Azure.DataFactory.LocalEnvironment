@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<package>
+  <metadata>
+    <id>gbrueckl.Azure.DataFactory.LocalEnvironment</id>
+    <version>0.9.0</version>
+    <title>Tools for Azure Data Factory v1 (!) to debug custom C# Activities and export ARM templates</title>
+    <authors>Gerhard Brueckl</authors>
+    <owners>Gerhard Brueckl</owners>
+    <licenseUrl>https://github.com/gbrueckl/Azure.DataFactory.LocalEnvironment/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/gbrueckl/Azure.DataFactory.LocalEnvironment</projectUrl>
+    <iconUrl>https://www.website.com/logo.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>This repository provides some tools which make it easier to work with Azure Data Factory (ADF). It mainly contains two features:
+- Debug Custom .Net Activities locally (within VS and without deployment to the ADF Service!)
+- Export existing ADF Visual Studio projects a Azure Resource Manager (ARM) template for deployment
+</description>
+    <releaseNotes>Fixed documentation</releaseNotes>
+    <copyright>Copyright 2018 Gerhard Brueckl</copyright>
+    <tags>Azure DataFactory C# Debug ARM template</tags>
+    <dependencies>
+	  <dependency id="Hyak.Common" version="1.0.2"/>
+	  <dependency id="Microsoft.Azure.Common" version="2.0.4" />
+	  <dependency id="Microsoft.Azure.Common.Dependencies" version="1.0.0" />
+	  <dependency id="Microsoft.Azure.Management.DataFactories" version="4.11.0" />
+	  <dependency id="Microsoft.Bcl" version="1.1.9" />
+	  <dependency id="Microsoft.Bcl.Async" version="1.0.168" />
+	  <dependency id="Microsoft.Bcl.Build" version="1.0.14" />
+	  <dependency id="Microsoft.Net.Http" version="2.2.22" />
+	  <dependency id="Newtonsoft.Json" version="9.0.1" />
+	  <dependency id="SharpZipLib" version="0.86.0" />
+    </dependencies>
+    <summary>Tools for Azure Data Factory v1 (!) to debug custom C# Activities and export ARM templates</summary>
+  </metadata>
+  <files>
+    <file src=".\..\ADFLocalEnvironment\bin\Release\gbrueckl.Azure.DataFactory.ADFLocalEnvironment.dll" target="lib\net45" />
+  </files>
+</package>

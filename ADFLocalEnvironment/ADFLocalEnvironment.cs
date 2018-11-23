@@ -49,7 +49,7 @@ namespace gbrueckl.Azure.DataFactory
         /// Creates a new instance of ADFLocalEnvironment which can be used to debug Custom Activities locally or to create an Azure Resource Manager template from an existing Azure Data Factory VS project.
         /// </summary>
         /// <param name="projectFilePath">Absolute or relative path to the project file of your Azure Data Factory project (.dfproj). Relative paths start at the TargetOutputDirectory of the current project, e.g. ./bin/debug !</param>
-        /// <param name="configName">(Optional) Name of the config file to use when setting up the ADF Local Environment. (e.g. MyConfig.json)</param>
+        /// <param name="configName">(Optional) Name of the config file to use when setting up the ADF Local Environment. (e.g. MyConfig.json). Has to be part of the ADF project!</param>
         /// <param name="customActivitiesPath">(Optional) If your ADF project references any custom activities (.zip-files) which are located outside of the ADF /Dependencies/-folder, this folder can be specified here. This can be useful e.g. for debugging purposes where the .zip-file was not copied to ADF yet. This does not overwrite Project References. Relative paths start at the ADF Project-folder!</param>
         public ADFLocalEnvironment(string projectFilePath, string configName = null, string customActivitiesPath = null)
         {

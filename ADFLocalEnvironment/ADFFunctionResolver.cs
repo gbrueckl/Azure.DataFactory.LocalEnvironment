@@ -25,7 +25,7 @@ namespace gbrueckl.Azure.DataFactory
                 throw new Exception("Only a function starting with $$ is supported!");
             }
 
-            // remvoe leading '&'
+            // remvoe leading '$'
             text = text.TrimStart('$');
 
             Match functionTest = Regex.Match(text, REGEX_PARSE_FUNCTION);
