@@ -5,14 +5,22 @@
     "type": "AzureBlob",
     "linkedServiceName": "AzureStorageLinkedService",
     "typeProperties": {
-      "folderPath": "adfcontainer/httpDownloadDataIn/{Slice}/",
+      "folderPath": "adfcontainer/httpDownloadDataIn/{YearMonth}/{DayHour}/",
       "partitionedBy": [
         {
-          "name": "Slice",
+          "name": "YearMonth",
           "value": {
             "type": "DateTime",
             "date": "SliceStart",
-            "format": "yyyyMMddHHmm"
+            "format": "yyyyMM"
+          }
+        },
+		{
+          "name": "DayHour",
+          "value": {
+            "type": "DateTime",
+            "date": "WindowEnd",
+            "format": "ddHHmm"
           }
         }
       ]

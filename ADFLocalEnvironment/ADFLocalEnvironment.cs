@@ -614,11 +614,13 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
         /// </summary>
         /// <param name="pipelineName">The name of the pipeline which contains the custom C# activity</param>
         /// <param name="activityName">The name of the activity which you want to debug</param>
-        /// <param name="sliceStart">SliceStart which is used when the activity is executed</param>
-        /// <param name="sliceEnd">SliceStart which is used when the activity is executed</param>
+        /// <param name="sliceStart">Value to be used for debugging when referencing <SliceStart> in the ADF code</param>
+        /// <param name="sliceEnd">Value to be used for debugging when referencing <SliceEnd> in the ADF code</param>
         /// <param name="activityLogger">Allows you to specify a custom Activity Logger to do your logging. Default is a Console Logger.</param>
+        /// <param name="windowStart">Value to be used for debugging when referencing <WindowStart> in the ADF code</param>
+        /// <param name="windowEnd">Value to be used for debugging when referencing <WindowEnd> in the ADF code</param>
         /// <returns></returns>
-        public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd, IActivityLogger activityLogger)
+        public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd, IActivityLogger activityLogger, DateTime? windowStart = null, DateTime? windowEnd = null)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("Debugging Custom Activity '{0}' from Pipeline '{1}' ...", activityName, pipelineName);
@@ -642,7 +644,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             if(!Pipelines.ContainsKey(pipelineName))
                 throw new KeyNotFoundException(string.Format("A pipeline with the name \"{0}\" was not found. Please check the spelling and make sure it was loaded correctly in the ADF Local Environment and see the console output", pipelineName));
             // don not apply Configuration again for GetADFObjectFromJson as this would overwrite changes done by MapSlices!!!
-            Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles[Pipelines[pipelineName].Name], sliceStart, sliceEnd), "Pipeline", false);
+            Pipeline pipeline = (Pipeline)GetADFObjectFromJson(MapSlices(_armFiles[Pipelines[pipelineName].Name], sliceStart, sliceEnd, windowStart, windowEnd), "Pipeline", false);
 
             Activity activityMeta = pipeline.GetActivityByName(activityName);
 
@@ -657,7 +659,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             for (int i = 0; i < activityAllDatasets.Count; i++)
             {
                 // MapSlices for the used Datasets
-                activityAllDatasets[i] = (Dataset)GetADFObjectFromJson(MapSlices(_armFiles[activityAllDatasets[i].Name], sliceStart, sliceEnd), "Dataset", false);
+                activityAllDatasets[i] = (Dataset)GetADFObjectFromJson(MapSlices(_armFiles[activityAllDatasets[i].Name], sliceStart, sliceEnd, windowStart, windowEnd), "Dataset", false);
 
                 // currently, as of 2017-01-25, the same LinkedService might get added multiple times if it is referenced by multiple datasets
                 // this is the same behavior as if the activity was executed with ADF Service!!!
@@ -697,12 +699,14 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
         /// </summary>
         /// <param name="pipelineName">The name of the pipeline which contains the custom C# activity</param>
         /// <param name="activityName">The name of the activity which you want to debug</param>
-        /// <param name="sliceStart">SliceStart which is used when the activity is executed</param>
-        /// <param name="sliceEnd">SliceStart which is used when the activity is executed</param>
+        /// <param name="sliceStart">Value to be used for debugging when referencing <SliceStart> in the ADF code</param>
+        /// <param name="sliceEnd">Value to be used for debugging when referencing <SliceEnd> in the ADF code</param>
+        /// <param name="windowStart">Value to be used for debugging when referencing <WindowStart> in the ADF code</param>
+        /// <param name="windowEnd">Value to be used for debugging when referencing <WindowEnd> in the ADF code</param>
         /// <returns></returns>
-        public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd)
+        public IDictionary<string, string> ExecuteActivity(string pipelineName, string activityName, DateTime sliceStart, DateTime sliceEnd, DateTime? windowStart = null, DateTime? windowEnd = null)
         {
-            return ExecuteActivity(pipelineName, activityName, sliceStart, sliceEnd, new ADFConsoleLogger());
+            return ExecuteActivity(pipelineName, activityName, sliceStart, sliceEnd, new ADFConsoleLogger(), windowStart, windowEnd);
         }
         #endregion
         #endregion
@@ -857,7 +861,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
 
             return new DirectoryInfo(localFolder);
         }
-        private JObject MapSlices(JObject jsonObject, DateTime sliceStart, DateTime sliceEnd)
+        private JObject MapSlices(JObject jsonObject, DateTime sliceStart, DateTime sliceEnd, DateTime? windowStart = null, DateTime? windowEnd = null)
         {
             JProperty jProp;
             string objectName = jsonObject["name"].ToString();
@@ -871,6 +875,8 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
 
             dateValues.Add("SliceStart", sliceStart);
             dateValues.Add("SliceEnd", sliceEnd);
+            if (windowStart.HasValue) { dateValues.Add("WindowStart", windowStart.Value); }
+            if (windowEnd.HasValue) { dateValues.Add("WindowEnd", windowEnd.Value); };
 
             foreach (JToken jToken in jsonObject.Descendants())
             {

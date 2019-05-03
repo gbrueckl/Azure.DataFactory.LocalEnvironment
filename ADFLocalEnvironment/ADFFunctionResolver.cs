@@ -69,6 +69,7 @@ namespace gbrueckl.Azure.DataFactory
                 }
                 else
                 { 
+                    // check if the text used in the function references a value in the dataValues (e.g. SliceStart, SliceEnd, WindowStart or WindowEnd)
                     foreach (KeyValuePair<string, DateTime> kvp in dateValues)
                     {
                         if (kvp.Key.ToLower() == text.ToLower())
@@ -79,9 +80,12 @@ namespace gbrueckl.Azure.DataFactory
 
                     int intParameter;
 
-                    if (!int.TryParse(text, out intParameter))
-                        return text;
-                    return intParameter;
+                    // check if the parameter is an integer value
+                    if (int.TryParse(text, out intParameter))
+                        return intParameter;
+
+                    // otherwise return an error that the value could not be found
+                    throw new Exception(string.Format("The reference {0} does not exist or could not be converted by ADFLocalEnvironment. Please check your ADF code!", text));
                 }
             }
             return null;

@@ -38,7 +38,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="gbrueckl.Azure.DataFactory.ADFLocalEnvironment, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\gbrueckl.Azure.DataFactory.LocalEnvironment.0.9.0\lib\net45\gbrueckl.Azure.DataFactory.ADFLocalEnvironment.dll</HintPath>
+      <HintPath>..\packages\gbrueckl.Azure.DataFactory.LocalEnvironment.0.9.1\lib\net45\gbrueckl.Azure.DataFactory.ADFLocalEnvironment.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Hyak.Common, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
