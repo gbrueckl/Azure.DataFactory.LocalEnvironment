@@ -78,6 +78,11 @@ namespace gbrueckl.Azure.DataFactory
                         }
                     }
 
+                    if(text.StartsWith("'{") && text.EndsWith("}'"))
+                    {
+                        return string.Format(text, dateValues.First().Value);
+                    }
+
                     int intParameter;
 
                     // check if the parameter is an integer value

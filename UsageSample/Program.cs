@@ -20,7 +20,7 @@ namespace UsageSample
             // if you want to apply a Config-File, please use this code:
             env = new ADFLocalEnvironment(
                 @"..\..\..\MyADFProject\MyADFProject.dfproj",           // Path to the ADF Project file (absolute or relative)
-                "MyConfig"                                              // (Optional) Name of the ADF-Config file to use
+                "MyConfig",                                              // (Optional) Name of the ADF-Config file to use
                 ".\Dependencies_Test"                                   // (Optional) custom path for References which should be used during debugging. Default is the ADF Dependencies-folder
                 );
             */

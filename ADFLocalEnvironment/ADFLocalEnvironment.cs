@@ -672,7 +672,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
             FileInfo zipFile = _adfDependencies.Single(x => dotNetActivityMeta.PackageFile.EndsWith(x.Value.Name)).Value;
             Console.WriteLine("Using '{0}' from ZIP-file '{1}'!", dotNetActivityMeta.AssemblyName, zipFile.FullName);
             UnzipFile(zipFile, dependencyPath);
-
+            //dependencyPath = _buildPath;
             Assembly assembly = Assembly.LoadFrom(Path.Combine(dependencyPath, dotNetActivityMeta.AssemblyName));
             Type type = assembly.GetType(dotNetActivityMeta.EntryPoint);
             IDotNetActivity dotNetActivityExecute = Activator.CreateInstance(type) as IDotNetActivity;
@@ -738,7 +738,7 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
                 dynClass = Type.GetType(dynClass.AssemblyQualifiedName.Replace("Core.DataFactoryManagementClient", "Conversion." + objectType + "Converter"));
                 ConstructorInfo constructor = dynClass.GetConstructor(Type.EmptyTypes);
                 object classObject = constructor.Invoke(new object[] { });
-                dynMethod = dynClass.GetMethod("ToWrapperType", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
+                dynMethod = dynClass.GetMethod("ToWrapperType", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public | BindingFlags.GetField | BindingFlags.GetProperty);
                 ret = dynMethod.Invoke(classObject, new object[] { internalObject });
             }
             catch (TargetInvocationException tie)
@@ -875,8 +875,26 @@ Write-Host ""Finished uploading all ADF Dependencies from $dependencyFolder !"" 
 
             dateValues.Add("SliceStart", sliceStart);
             dateValues.Add("SliceEnd", sliceEnd);
-            if (windowStart.HasValue) { dateValues.Add("WindowStart", windowStart.Value); }
-            if (windowEnd.HasValue) { dateValues.Add("WindowEnd", windowEnd.Value); };
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            if (windowStart.HasValue)
+            {
+                dateValues.Add("WindowStart", windowStart.Value);
+            }
+            else
+            {
+                Console.WriteLine("TimeValue for 'WindowStart' was not set explicitly - using 'SliceStart' instead!");
+                dateValues.Add("WindowStart", sliceStart);
+            }
+            if (windowEnd.HasValue)
+            {
+                dateValues.Add("WindowEnd", windowEnd.Value);
+            }
+            else
+            {
+                Console.WriteLine("TimeValue for 'WindowEnd' was not set explicitly - using 'SliceEnd' instead!");
+                dateValues.Add("WindowEnd", sliceEnd);
+            }
+            Console.ForegroundColor = ConsoleColor.Gray;
 
             foreach (JToken jToken in jsonObject.Descendants())
             {
