@@ -2,11 +2,11 @@
 <package>
   <metadata>
     <id>gbrueckl.Azure.DataFactory.LocalEnvironment</id>
-    <version>0.9.1</version>
+    <version>0.9.2</version>
     <title>Tools for Azure Data Factory v1 (!) to debug custom C# Activities and export ARM templates</title>
     <authors>Gerhard Brueckl</authors>
     <owners>Gerhard Brueckl</owners>
-    <licenseUrl>https://github.com/gbrueckl/Azure.DataFactory.LocalEnvironment/blob/master/LICENSE</licenseUrl>
+	<license type="expression">MIT</license>
     <projectUrl>https://github.com/gbrueckl/Azure.DataFactory.LocalEnvironment</projectUrl>
     <iconUrl>https://www.website.com/logo.png</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
